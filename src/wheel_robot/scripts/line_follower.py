@@ -5,6 +5,11 @@ The detector deliberately works on a 320x160 copy of the lower image region.
 The 640x480 frame is retained only for display and recording.  This keeps the
 hot path small enough for an Orange Pi while preserving useful evidence when a
 run needs to be analysed afterwards.
+这是一个针对室外红底白线的低成本巡线程序，适用于 Orange Pi。检测器在图像下半部分的 320x160 区域上工作，而保留 640x480 的原始帧用于显示和录像。这种设计使得程序在 Orange Pi 上运行时保持高效，同时在需要分析时保留有用的证据。
+启动方式：
+ros2 run wheel_robot line_follow.launch.py enable_motion:=true
+ros2 run wheel_robot line_follow.launch.py enable_motion:=false
+hdmi ros2 run wheel_robot line_follower.py --ros-args -p enable_motion:=false -p show_debug_window:=true
 """
 
 from __future__ import annotations
@@ -31,7 +36,7 @@ ENABLE_MOTION = True
 SHOW_DEBUG_WINDOW = False
 # ---------- 最常用：速度参数 ----------
 # 单位：线速度 m/s，角速度 rad/s。
-NORMAL_SPEED = 0.80              # 直线/小误差时的正常速度
+NORMAL_SPEED = 0.80              # 直线/小误差时的正常速度 0.8
 MIN_SPEED = 0.60                 # 大弯自动降速后的最低速度
 MAX_ANGULAR_SPEED = 0.60         # 正常巡线最大转向角速度
 CURVE_SLOWDOWN = 0.48            # 0~1，越大表示转弯时降速越明显
@@ -50,8 +55,14 @@ CAMERA_BUFFER_SIZE = 1
 IMAGE_TIMEOUT_SECONDS = 0.35
 CONTROL_RATE_HZ = 25.0
 
+# 离线回放：video_source 填视频文件路径时改为从文件读帧（不开摄像头），
+# 并强制 enable_motion=False。素材必须用 camera_recorder.py 录的"干净帧"，
+# 不能是带叠加的调试图，否则检测器看到的是拼接画面。
+VIDEO_SOURCE = ""
+VIDEO_LOOP = False
+
 # 地面 ROI：从画面高度 45% 到底部，恰好约占下方 55%。
-ROI_TOP_RATIO = 0.45
+ROI_TOP_RATIO = 0.50 #0.45
 ROI_BOTTOM_RATIO = 1.00
 ROI_LEFT_RATIO = 0.00
 ROI_RIGHT_RATIO = 1.00
@@ -59,7 +70,8 @@ PROCESS_WIDTH = 320
 PROCESS_HEIGHT = 160
 
 # 横向跟线偏置（处理图像像素）。负数让白线保持在画面左侧、车体向右移；
-# 正数让白线保持在画面右侧、车体向左移。当前“右轮压线”先用 -35。
+# 正数让白线保持在画面右侧、车体向左移。当前“左轮压线”先用 -35。#好像写错了，应该是左轮压线，我看他写成右轮了
+#正中心像素应该是160，因为是320*240（ROI横向不裁剪）
 LINE_TARGET_OFFSET_PX = -35.0
 
 # HSV 白线：低饱和度 + 动态/局部亮度。OpenCV 的 H 范围是 0~180。
@@ -97,11 +109,11 @@ MID_WEIGHT = 0.30
 FAR_WEIGHT = 0.15
 
 # 候选线约束。等效线宽 = 连通域面积 / 纵向跨度，曲线也不易误判为宽块。
-MIN_COMPONENT_AREA = 20
-MAX_COMPONENT_AREA_RATIO = 0.22
-MIN_LINE_WIDTH_PX = 2.0
-MAX_LINE_WIDTH_PX = 52.0
-EXPECTED_LINE_WIDTH_PX = 12.0
+MIN_COMPONENT_AREA = 20# 最小连通域面积
+MAX_COMPONENT_AREA_RATIO = 0.22# 最大连通域面积占段区域的比例
+MIN_LINE_WIDTH_PX = 2.0# 最小线宽（像素）
+MAX_LINE_WIDTH_PX = 52.0# 最大线宽（像素）
+EXPECTED_LINE_WIDTH_PX = 12.0# 预期线宽（像素）
 MIN_VERTICAL_COVERAGE = 0.24
 MIN_SINGLE_RUN_FRACTION = 0.72   # 每个有效行应主要是一条白带，而非反光圆环
 MAX_FRAME_JUMP_RATIO = 0.20      # 同一段相邻帧最多跳 PROCESS_WIDTH 的比例
@@ -114,7 +126,7 @@ SINGLE_SEGMENT_MIN_QUALITY = 0.52
 MIN_WHITE_PIXEL_RATIO = 0.0008
 MAX_WHITE_PIXEL_RATIO = 0.16
 
-# PD/PID。error>0 表示线在画面右侧；本车右转通常要求 angular.z<0。
+# PD/PID。error>0 表示线在画面右侧；本车右转通常要求 angular.z<0。（视觉转向环PID）
 KP = 0.68
 KI = 0.00
 KD = 0.028
@@ -145,7 +157,7 @@ CMD_VEL_TOPIC = "/cmd_vel"
 
 
 @dataclass
-class SegmentDetection:
+class SegmentDetection:# 段检测结果
     name: str
     y0: int
     y1: int
@@ -161,7 +173,7 @@ class SegmentDetection:
 
 
 @dataclass
-class DetectionResult:
+class DetectionResult:# 检测结果
     valid: bool
     target_x: Optional[float]
     error: float
@@ -201,15 +213,15 @@ class OutdoorWhiteLineDetector:
         low_saturation = s <= WHITE_S_MAX
         sample = v[low_saturation]
         if sample.size >= 64:
-            base_v = float(np.percentile(sample, DYNAMIC_V_PERCENTILE))
+            base_v = float(np.percentile(sample, DYNAMIC_V_PERCENTILE))# 动态V阈值
         else:
             base_v = float(np.percentile(v, DYNAMIC_V_PERCENTILE))
         dynamic_v = int(
             np.clip(base_v + DYNAMIC_V_OFFSET, DYNAMIC_V_MIN, DYNAMIC_V_MAX)
         )
 
-        absolute_bright = v >= dynamic_v
-        local_bright = cv2.adaptiveThreshold(
+        absolute_bright = v >= dynamic_v# 绝对明亮,用于强白线的检测
+        local_bright = cv2.adaptiveThreshold(# 本地明亮,用于弱白线的检测
             v,
             255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -219,21 +231,21 @@ class OutdoorWhiteLineDetector:
         ) > 0
         strong_bright = v >= min(255, dynamic_v + STRONG_WHITE_V_MARGIN)
 
-        red_1 = (
+        red_1 = (# 红色排除
             (h >= RED_H_LOW_1)
             & (h <= RED_H_HIGH_1)
             & (s >= RED_S_MIN)
             & (v >= RED_V_MIN)
         )
-        red_2 = (
+        red_2 = (# 红色排除
             (h >= RED_H_LOW_2)
             & (h <= RED_H_HIGH_2)
             & (s >= RED_S_MIN)
             & (v >= RED_V_MIN)
         )
-        not_red = ~(red_1 | red_2)
+        not_red = ~(red_1 | red_2)# 非红色
 
-        hue_ok = (h >= WHITE_H_MIN) & (h <= WHITE_H_MAX)
+        hue_ok = (h >= WHITE_H_MIN) & (h <= WHITE_H_MAX)# 白色H范围
         white = (
             hue_ok
             & low_saturation
@@ -278,11 +290,11 @@ class OutdoorWhiteLineDetector:
 
         for label in range(1, count):
             area = int(stats[label, cv2.CC_STAT_AREA])
-            component_height = int(stats[label, cv2.CC_STAT_HEIGHT])
+            component_height = int(stats[label, cv2.CC_STAT_HEIGHT])# 组件高度
             if area < MIN_COMPONENT_AREA or area > max_area:
                 continue
             vertical_coverage = component_height / float(max(1, y1 - y0))
-            line_width = area / float(max(1, component_height))
+            line_width = area / float(max(1, component_height))# 线宽
             if not (MIN_LINE_WIDTH_PX <= line_width <= MAX_LINE_WIDTH_PX):
                 continue
             if vertical_coverage < MIN_VERTICAL_COVERAGE:
@@ -528,6 +540,8 @@ class OutdoorLineFollower(Node):
         self.declare_parameter("curve_slowdown", CURVE_SLOWDOWN)
         self.declare_parameter("lost_search_speed", LOST_SEARCH_SPEED)
         self.declare_parameter("lost_search_angular", LOST_SEARCH_ANGULAR)
+        self.declare_parameter("video_source", VIDEO_SOURCE)
+        self.declare_parameter("video_loop", VIDEO_LOOP)
         self.enable_motion = bool(self.get_parameter("enable_motion").value)
         self.show_debug_window = bool(
             self.get_parameter("show_debug_window").value
@@ -546,6 +560,13 @@ class OutdoorLineFollower(Node):
         self.lost_search_angular = float(
             self.get_parameter("lost_search_angular").value
         )
+        self.video_source = str(
+            self.get_parameter("video_source").value
+        ).strip()
+        self.video_loop = bool(self.get_parameter("video_loop").value)
+        if self.video_source and self.enable_motion:
+            # 回放时必须禁驱：否则会照着录像里的画面把真车开走。
+            self.enable_motion = False
 
         self.cmd_pub = self.create_publisher(Twist, CMD_VEL_TOPIC, 10)
         self.detector = OutdoorWhiteLineDetector()
@@ -580,6 +601,13 @@ class OutdoorLineFollower(Node):
         self.csv_path = OUTPUT_DIRECTORY / f"{basename}.csv"
         self._open_csv()
 
+        if self.video_source:
+            self.get_logger().warn(
+                "离线回放模式："
+                f"{self.video_source}"
+                "（已强制 enable_motion=False"
+                f"{'，循环播放' if self.video_loop else ''}）"
+            )
         mode = "运动已启用" if self.enable_motion else "仅识别（底盘强制为零）"
         self.get_logger().warn(
             f"室外红底白线巡线启动：{mode}；Ctrl-C 或丢线超时会立即停车"
@@ -597,6 +625,21 @@ class OutdoorLineFollower(Node):
         self.csv_file.flush()
 
     def _open_camera(self) -> None:
+        if self.video_source:
+            capture = cv2.VideoCapture(self.video_source)
+            if not capture.isOpened():
+                capture.release()
+                raise RuntimeError(f"无法打开回放视频: {self.video_source}")
+            self.capture = capture
+            self.get_logger().info(
+                "离线回放已打开: "
+                f"{self.video_source} "
+                f"({int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))}x"
+                f"{int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))}, "
+                f"{int(capture.get(cv2.CAP_PROP_FRAME_COUNT))} 帧 @ "
+                f"{capture.get(cv2.CAP_PROP_FPS):.1f} fps)"
+            )
+            return
         if CAMERA_BACKEND == "v4l2":
             capture = cv2.VideoCapture(CAMERA_DEVICE, cv2.CAP_V4L2)
         else:
@@ -1054,6 +1097,15 @@ class OutdoorLineFollower(Node):
             ok, frame = self.capture.read()
             now = time.monotonic()
             if not ok or frame is None:
+                if self.video_source:
+                    # 文件读完是正常结束，不是故障。
+                    if self.video_loop:
+                        self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        self.get_logger().info("回放循环：回到开头")
+                        continue
+                    self.get_logger().info("回放结束，停车退出")
+                    self.stop_now()
+                    break
                 if consecutive_fail_start is None:
                     consecutive_fail_start = now
                 if now - consecutive_fail_start >= IMAGE_TIMEOUT_SECONDS:
