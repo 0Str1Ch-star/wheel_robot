@@ -37,3 +37,12 @@ ROS模式	2	接收到上位机数据控制移动底盘：前后，航向，横�
 随后将SWA拨到1，将机器人放到地上即可
 
 关机一定要放回架子上并把遥控器置初始位置！！
+
+# 重新编译ESP32下位机
+当前哈希值：e93a951b54ba9882fd2324134f9b406b37daa1fd589ef16a8967aa17993b59c9   ---10.9
+跑通了，果然是官方固件的问题
+
+# 键盘遥控机器人
+1.确保SWA置于2
+ros2 launch wheel_robot base.launch.py
+ros2 run wheel_robot keyboard_teleop.py
