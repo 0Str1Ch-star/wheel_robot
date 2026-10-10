@@ -60,7 +60,7 @@ ros2 run wheel_robot keyboard_teleop.py
 /camera/depth/center_distance	Range	正前障碍距离
 /camera/depth/right_distance	Range	右前障碍距离
 
-# 首次测试line_follower.py
+# 首次测试dual_line_follower.py
 视频在 /home/orangepi/wheel_robot/install/recordings/dual_white_line_20261009_153506.avi 
 ┌──────────────────────┬──────────────────┐
 │                      │  ROI 320×160     │  ← 处理图（地面区域缩放后）
@@ -93,3 +93,33 @@ ros2 run wheel_robot camera_recorder.py
 已录制：
 recordings/course_20261009_164310.avi
 /home/orangepi/wheel_robot/recordings/course_20261009_164445.avi
+
+# 10.10 丢线排查（line_follower.py 调参）
+现象：丢线严重。用新增的 tools/inspect_frames.py 逐帧量出白线真实值：
+    白线 S=50~125、V=110~175；红地面 S>=153；画面整体偏暗（V p50=71）
+改动都在 line_follower.py 里（带注释）：
+
+1. RED_S_MIN 65 -> 145          【主因】白线被红地面染成 H=5~13/S=50~125，被当成红色剔除了
+2. WHITE_S_MAX 72 -> 135        白线 S 中位 75，原值砍掉一半以上
+3. DYNAMIC_V_MIN 115 -> 90      原下限直接高于白线的 V，白线永远过不了
+4. DYNAMIC_V_OFFSET 16 -> 8
+5. DYNAMIC_V_PERCENTILE 82 -> 75
+6. STRONG_WHITE_V_MARGIN 28 -> 12
+7. MIN_VERTICAL_COVERAGE 0.24 -> 0.10
+8. MIN_COMPONENT_AREA 20 -> 12
+9. OPEN_ITERATIONS 1 -> 0（关闭开运算）、CLOSE_KERNEL_SIZE 5 -> 7
+   3x3 开运算会把细白线侵蚀成碎片，是掩码「断点」的元凶
+
+效果（75 帧，t=5~20s）：整帧有效 0% -> 91%，≥2段 0% -> 87%，≥3段 0% -> 39%
+
+新增 tools/inspect_frames.py（离线调 HSV 用）：
+    从录像截帧，导出【ROI | V | S | MASK】四联图 + 掩码联络表，
+    直接复用 line_follower.py 的检测器和阈值。
+    python3 src/wheel_robot/tools/inspect_frames.py recordings/xxx.avi \
+      --start 8.0 --duration 0.3 --save-raw
+    输出默认在 ~/wheel_robot/mask_debug/
+
+调参证据图在 ~/wheel_robot/mask_debug/：
+    morph_fix.png    开运算修正前后对比（最直观：碎片 -> 连续曲线）
+    best_f282_t9.40s.png  最佳帧，3 段全中、置信度 0.956
+    best_params.md   参数表 + 每项依据

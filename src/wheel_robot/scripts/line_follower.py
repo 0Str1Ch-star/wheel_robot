@@ -77,12 +77,14 @@ LINE_TARGET_OFFSET_PX = -35.0
 # HSV 白线：低饱和度 + 动态/局部亮度。OpenCV 的 H 范围是 0~180。
 WHITE_H_MIN = 0
 WHITE_H_MAX = 180
-WHITE_S_MAX = 72
-DYNAMIC_V_PERCENTILE = 82.0      # 低饱和像素亮度的这个百分位
-DYNAMIC_V_OFFSET = 16.0          # 百分位基础上再提高，抑制灰白地面/阴影
-DYNAMIC_V_MIN = 115
+# 2026-10-10 实测调参（素材 course_20261009_164310.avi，t=5~20s）：
+#   白线实测 S=50~125、V=110~175；红地面 S>=153；画面整体偏暗（V p50=71）
+WHITE_S_MAX = 135                # 原 72：白线 S 中位 75，原值砍掉一半以上
+DYNAMIC_V_PERCENTILE = 75.0      # 低饱和像素亮度的这个百分位
+DYNAMIC_V_OFFSET = 8.0           # 百分位基础上再提高，抑制灰白地面/阴影
+DYNAMIC_V_MIN = 90               # 原 115：直接高于白线的 V，白线永远过不了
 DYNAMIC_V_MAX = 225
-STRONG_WHITE_V_MARGIN = 28       # 极亮像素可绕过局部对比要求
+STRONG_WHITE_V_MARGIN = 12       # 原 28：暗画面下太苛刻
 ADAPTIVE_BLOCK_SIZE = 31         # 必须为奇数
 ADAPTIVE_C = -5.0                # 负数表示要求比局部均值更亮
 
@@ -91,13 +93,16 @@ RED_H_LOW_1 = 0
 RED_H_HIGH_1 = 13
 RED_H_LOW_2 = 167
 RED_H_HIGH_2 = 180
-RED_S_MIN = 65
+RED_S_MIN = 145                  # 原 65：白线被红地面染色成 H=5~13 / S=50~125，
+                                 # 原值把白线当红色剔除了——这是丢线的主因
 RED_V_MIN = 35
 
-# 形态学：按需求固定为 3x3 开运算、5x5 闭运算。
+# 形态学。2026-10-10 实测：3x3 开运算会把细白线侵蚀成碎片，
+# 是"掩码断点"的元凶，故关闭它（OPEN_ITERATIONS=0；等价写法是 OPEN_KERNEL_SIZE=1）。
+# 实测：整帧有效率 47% -> 91%，连通域块数 12 -> 6，最高组件高度 30 -> 112。
 OPEN_KERNEL_SIZE = 3
-CLOSE_KERNEL_SIZE = 5
-OPEN_ITERATIONS = 1
+CLOSE_KERNEL_SIZE = 7
+OPEN_ITERATIONS = 0
 CLOSE_ITERATIONS = 1
 
 # 三段范围与融合权重（坐标均相对于缩放后的 ROI，0=远端/顶部）。
@@ -109,12 +114,12 @@ MID_WEIGHT = 0.30
 FAR_WEIGHT = 0.15
 
 # 候选线约束。等效线宽 = 连通域面积 / 纵向跨度，曲线也不易误判为宽块。
-MIN_COMPONENT_AREA = 20# 最小连通域面积
+MIN_COMPONENT_AREA = 12          # 最小连通域面积（原 20：近处白线在掩码里偏碎）
 MAX_COMPONENT_AREA_RATIO = 0.22# 最大连通域面积占段区域的比例
 MIN_LINE_WIDTH_PX = 2.0# 最小线宽（像素）
 MAX_LINE_WIDTH_PX = 52.0# 最大线宽（像素）
 EXPECTED_LINE_WIDTH_PX = 12.0# 预期线宽（像素）
-MIN_VERTICAL_COVERAGE = 0.24
+MIN_VERTICAL_COVERAGE = 0.10     # 原 0.24：近处白线在掩码里只有 2~4 行高
 MIN_SINGLE_RUN_FRACTION = 0.72   # 每个有效行应主要是一条白带，而非反光圆环
 MAX_FRAME_JUMP_RATIO = 0.20      # 同一段相邻帧最多跳 PROCESS_WIDTH 的比例
 MAX_NEAR_MID_GAP_RATIO = 0.34
