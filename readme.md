@@ -86,7 +86,9 @@ ros2 run wheel_robot keyboard_teleop.py
 
 修改了文件，加上了回放视频功能：
 ros2 run wheel_robot line_follower.py --ros-args \
-  -p video_source:=$HOME/wheel_robot/recordings/
+  -p video_source:=$HOME/wheel_robot/recordings/course_20261010_160202.avi \
+  -p video_loop:=true -p show_debug_window:=true
+# 注意：带 video_source 时代码会强制 enable_motion=False，不会驱动真车
 # 录制视频
 ros2 run wheel_robot camera_recorder.py
 注意输出目录是 ~/wheel_robot/recordings/
@@ -123,3 +125,34 @@ recordings/course_20261009_164310.avi
     morph_fix.png    开运算修正前后对比（最直观：碎片 -> 连续曲线）
     best_f282_t9.40s.png  最佳帧，3 段全中、置信度 0.956
     best_params.md   参数表 + 每项依据
+
+# 10.10 dual_line_follower.py 同步调参
+前 7 项改动与 line_follower.py 完全相同（RED_S_MIN / WHITE_S_MAX /
+DYNAMIC_V_* / STRONG_WHITE_V_MARGIN / 关闭开运算 + 闭核改 7）。
+另外必须多改一项：
+
+    MAX_WHITE_PIXEL_RATIO 0.20 -> 0.50
+    关闭开运算后掩码变厚（白像素中位 19%、最高 43%），原上限会否掉 26/75 帧，
+    抬高后整帧有效 65% -> 100%
+    （单线版实测这一项只 91%->92%，没必要改，故保持原值）
+
+效果（75 帧，t=5~20s）：
+    基线: 100%  /  ≥2段 49  /  ≥3段 18  /  conf 均值 0.382
+    现在: 100%  /  ≥2段 75  /  ≥3段 72  /  conf 均值 0.900
+
+# 10.11 dual_line_follower.py ROI_TOP_RATIO（看台干扰）
+
+    ROI_TOP_RATIO 0.42 -> 0.54
+    （这是模块常量，不是 ROS 参数，不能用 -p 覆盖，改完必须重新 colcon build）  
+
+原因：画面顶部 0~52% 是看台（亮白低饱和）。它有两个害处：
+  1. 被当成白线，而 FAR 段在融合里占 0.24 权重，会把方向盘带偏；
+  2. 把 _make_mask 里整个 ROI 的全局动态亮度分位数抬上去，反而把真白线压掉。
+  
+dual_line_follower.py 也加了 video_source 回放（用法同单线版）：
+    ros2 run wheel_robot dual_line_follower.py --ros-args \
+      -p video_source:=$HOME/wheel_robot/recordings/course_20261010_160202.avi \
+      -p video_loop:=true -p show_debug_window:=true
+
+# dual_line_follower_illum.py
+光照归一化，解决了局部过亮的问题

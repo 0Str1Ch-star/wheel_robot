@@ -1,0 +1,1 @@
+timestamp,frame_id,fps,center_x,left_x,right_x,lane_width,image_center,control_reference_x,lane_target_offset_px,error,d_error,confidence,near_center_x,mid_center_x,far_center_x,near_valid,mid_valid,far_valid,white_pixel_ratio,dynamic_v_threshold,linear_cmd,angular_cmd,line_state,line_reason,near_quality,mid_quality,far_quality

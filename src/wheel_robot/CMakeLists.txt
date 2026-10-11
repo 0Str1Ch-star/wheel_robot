@@ -109,6 +109,7 @@ install(PROGRAMS
   scripts/depth_preview.py
   scripts/line_follower.py
   scripts/dual_line_follower.py
+  scripts/dual_line_follower_illum.py
   scripts/icn.py
   scripts/shiwai.py
   scripts/lesson17_vision_follower.py

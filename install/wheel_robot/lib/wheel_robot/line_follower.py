@@ -7,8 +7,8 @@ hot path small enough for an Orange Pi while preserving useful evidence when a
 run needs to be analysed afterwards.
 这是一个针对室外红底白线的低成本巡线程序，适用于 Orange Pi。检测器在图像下半部分的 320x160 区域上工作，而保留 640x480 的原始帧用于显示和录像。这种设计使得程序在 Orange Pi 上运行时保持高效，同时在需要分析时保留有用的证据。
 启动方式：
-ros2 run wheel_robot line_follow.launch.py enable_motion:=true
-ros2 run wheel_robot line_follow.launch.py enable_motion:=false
+ros2 run wheel_robot line_follower.py enable_motion:=true
+ros2 run wheel_robot line_follower.py enable_motion:=false
 hdmi ros2 run wheel_robot line_follower.py --ros-args -p enable_motion:=false -p show_debug_window:=true
 """
 

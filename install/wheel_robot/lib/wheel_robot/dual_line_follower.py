@@ -20,7 +20,8 @@ from rclpy.signals import SignalHandlerOptions
 
 
 # ======================== 默认参数（推荐在 config/dual_line_follower.yaml 调整） ========================
-
+# ros2 run wheel_robot dual_line_follower.py enable_motion:=false
+# ros2 run wheel_robot dual_line_follower.py enable_motion:=true
 ENABLE_MOTION = True
 
 # ---------- 最常用：速度参数 ----------
@@ -43,8 +44,17 @@ CAMERA_BUFFER_SIZE = 1
 IMAGE_TIMEOUT_SECONDS = 0.35
 CONTROL_RATE_HZ = 25.0
 
+# 离线回放：video_source 填视频文件路径时改为从文件读帧（不开摄像头），
+# 并强制 enable_motion=False。素材必须用 camera_recorder.py 录的"干净帧"。
+VIDEO_SOURCE = ""
+VIDEO_LOOP = False
+
 # 双边白线通常在画面下半部分；底部略裁掉一点，避开车体/强畸变。
-ROI_TOP_RATIO = 0.42
+# 2026-10-11：画面 0~52% 是看台（亮白低饱和），会被当成白线，而且会抬高
+#   _make_mask 里整个 ROI 的全局动态亮度阈值，反而压死真白线。
+#   实测 FAR 段亮白占比：ROI_TOP_RATIO=0.42 时 0.081 → 0.54 时 0.011（降 86%），
+#   再往上(0.58/0.62)无进一步收益，只损失远视野。
+ROI_TOP_RATIO = 0.54
 ROI_BOTTOM_RATIO = 0.96
 ROI_LEFT_RATIO = 0.00
 ROI_RIGHT_RATIO = 1.00
@@ -57,12 +67,14 @@ LANE_TARGET_OFFSET_PX = 0.0
 # HSV 白线分割：低饱和度 + 动态亮度 + 红底排除。
 WHITE_H_MIN = 0
 WHITE_H_MAX = 180
-WHITE_S_MAX = 72
-DYNAMIC_V_PERCENTILE = 82.0
-DYNAMIC_V_OFFSET = 16.0
-DYNAMIC_V_MIN = 115
+# 2026-10-10 实测调参（素材 course_20261009_164310.avi，t=5~20s）：
+#   白线实测 S=50~125、V=110~175；红地面 S>=153；画面整体偏暗
+WHITE_S_MAX = 135                # 原 72：白线 S 中位 75，原值砍掉一半以上
+DYNAMIC_V_PERCENTILE = 75.0
+DYNAMIC_V_OFFSET = 8.0
+DYNAMIC_V_MIN = 90               # 原 115：直接高于白线的 V，白线永远过不了
 DYNAMIC_V_MAX = 225
-STRONG_WHITE_V_MARGIN = 28
+STRONG_WHITE_V_MARGIN = 28       # 原 28：暗画面下太苛刻12
 ADAPTIVE_BLOCK_SIZE = 31
 ADAPTIVE_C = -5.0
 LOCAL_DARK_C = 7.0
@@ -76,12 +88,15 @@ RED_H_LOW_1 = 0
 RED_H_HIGH_1 = 13
 RED_H_LOW_2 = 167
 RED_H_HIGH_2 = 180
-RED_S_MIN = 65
+RED_S_MIN = 145                  # 原 65：白线被红地面染色成 H=5~13 / S=50~125，
+                                 # 原值把白线当红色剔除了——这是丢线的主因
 RED_V_MIN = 35
 
+# 形态学。2026-10-10 实测：3x3 开运算会把细白线侵蚀成碎片，故关闭
+# （OPEN_ITERATIONS=0；等价写法 OPEN_KERNEL_SIZE=1）。闭运算核加大以补缝。
 OPEN_KERNEL_SIZE = 3
-CLOSE_KERNEL_SIZE = 5
-OPEN_ITERATIONS = 1
+CLOSE_KERNEL_SIZE = 7
+OPEN_ITERATIONS = 0
 CLOSE_ITERATIONS = 1
 
 # 三段融合。近端负责稳定当前姿态，中远端提前看弯。
@@ -107,7 +122,9 @@ TRACK_MEMORY_FRAMES = 8
 MIN_DETECTION_CONFIDENCE = 0.08
 MIN_ACTIVE_SEGMENTS = 1
 MIN_WHITE_PIXEL_RATIO = 0.0008
-MAX_WHITE_PIXEL_RATIO = 0.20
+# 原 0.20：关闭开运算后掩码变厚（白像素中位 19%、最高 43%），原上限会否掉
+# 26/75 帧；抬高后整帧有效 65% -> 100%
+MAX_WHITE_PIXEL_RATIO = 0.50
 ALLOW_SINGLE_BOUNDARY_MEMORY = True
 SINGLE_BOUNDARY_QUALITY = 0.32
 
@@ -644,6 +661,8 @@ class DualWhiteLineFollower(Node):
         self.declare_parameter("curve_slowdown", CURVE_SLOWDOWN)
         self.declare_parameter("lost_search_speed", LOST_SEARCH_SPEED)
         self.declare_parameter("lost_search_angular", LOST_SEARCH_ANGULAR)
+        self.declare_parameter("video_source", VIDEO_SOURCE)
+        self.declare_parameter("video_loop", VIDEO_LOOP)
         self.enable_motion = bool(self.get_parameter("enable_motion").value)
         self.show_debug_window = bool(
             self.get_parameter("show_debug_window").value
@@ -662,6 +681,13 @@ class DualWhiteLineFollower(Node):
         self.lost_search_angular = float(
             self.get_parameter("lost_search_angular").value
         )
+        self.video_source = str(
+            self.get_parameter("video_source").value
+        ).strip()
+        self.video_loop = bool(self.get_parameter("video_loop").value)
+        if self.video_source and self.enable_motion:
+            # 回放时必须禁驱：否则会照着录像里的画面把真车开走。
+            self.enable_motion = False
 
         self.cmd_pub = self.create_publisher(Twist, CMD_VEL_TOPIC, 10)
         self.detector = DualWhiteLineDetector()
@@ -692,6 +718,13 @@ class DualWhiteLineFollower(Node):
         self.csv_path = OUTPUT_DIRECTORY / f"{basename}.csv"
         self._open_csv()
 
+        if self.video_source:
+            self.get_logger().warn(
+                "离线回放模式："
+                f"{self.video_source}"
+                "（已强制 enable_motion=False"
+                f"{'，循环播放' if self.video_loop else ''}）"
+            )
         mode = "运动已启用" if self.enable_motion else "仅识别（底盘强制为零）"
         self.get_logger().warn(
             f"红底双白线巡线启动：{mode}；Ctrl-C 或丢线超时会立即停车"
@@ -707,6 +740,21 @@ class DualWhiteLineFollower(Node):
         self.csv_file.flush()
 
     def _open_camera(self) -> None:
+        if self.video_source:
+            capture = cv2.VideoCapture(self.video_source)
+            if not capture.isOpened():
+                capture.release()
+                raise RuntimeError(f"无法打开回放视频: {self.video_source}")
+            self.capture = capture
+            self.get_logger().info(
+                "离线回放已打开: "
+                f"{self.video_source} "
+                f"({int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))}x"
+                f"{int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))}, "
+                f"{int(capture.get(cv2.CAP_PROP_FRAME_COUNT))} 帧 @ "
+                f"{capture.get(cv2.CAP_PROP_FPS):.1f} fps)"
+            )
+            return
         if CAMERA_BACKEND == "v4l2":
             capture = cv2.VideoCapture(CAMERA_DEVICE, cv2.CAP_V4L2)
         else:
@@ -1054,6 +1102,15 @@ class DualWhiteLineFollower(Node):
             ok, frame = self.capture.read()
             now = time.monotonic()
             if not ok or frame is None:
+                if self.video_source:
+                    # 文件读完是正常结束，不是故障。
+                    if self.video_loop:
+                        self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        self.get_logger().info("回放循环：回到开头")
+                        continue
+                    self.get_logger().info("回放结束，停车退出")
+                    self.stop_now()
+                    break
                 if consecutive_fail_start is None:
                     consecutive_fail_start = now
                 if now - consecutive_fail_start >= IMAGE_TIMEOUT_SECONDS:
