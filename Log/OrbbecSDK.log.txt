@@ -578,3 +578,427 @@
 [10/09 13:38:44.285425][debug][13878][FrameBufferManager.cpp:69] AbstractFrameBufferManager destroyed! manager type:N11libobsensor26AbstractFrameBufferManagerE,  obj addr:0x5582a085a0
 [10/09 13:38:44.285428][info][13878][Context.cpp:84] Context destroyed
 [10/09 13:38:44.285645][debug][14096][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**300 logs in 10227ms, last: 13:38:44.164094**]
+[10/11 15:44:16.004708][debug][28244][Context.cpp:30] Context creating, work_dir=/home/orangepi/wheel_robot
+[10/11 15:44:16.004870][debug][28244][Context.cpp:49] Config file version=1.1
+[10/11 15:44:16.007297][debug][28244][FrameBufferManager.cpp:23] Max global frame buffer size updated! size=2048.000MB
+[10/11 15:44:16.007367][info][28244][Context.cpp:68] Context created with config: default config!
+[10/11 15:44:16.007396][info][28244][Context.cpp:73] Work directory=/home/orangepi/wheel_robot, SDK version=v1.10.37-20260707-3f75820
+[10/11 15:44:16.007428][debug][28244][DeviceManager.cpp:30] DeviceManager init ...
+[10/11 15:44:16.007444][info][28244][LinuxPal.cpp:60] createObPal: create LinuxPal!
+[10/11 15:44:16.014022][debug][28244][DeviceManager.cpp:34] Enable USB Device Enumerator ...
+[10/11 15:44:16.016126][debug][28244][EnumeratorLibusb.cpp:324] queryDevicesInfo done!
+[10/11 15:44:16.016169][debug][28244][UsbDeviceEnumerator.cpp:163] Current usb device port list:
+[10/11 15:44:16.016196][debug][28244][UsbDeviceEnumerator.cpp:166]  - 1-1.2-4.0 | ORBBEC Depth Sensor
+[10/11 15:44:16.016213][debug][28244][UsbDeviceEnumerator.cpp:166]  - 1-1.2-4.1 | ORBBEC Audio Device
+[10/11 15:44:16.016219][debug][28244][UsbDeviceEnumerator.cpp:166]  - 1-1.1-3.0 | 
+[10/11 15:44:16.016558][warning][28244][OpenNIDeviceInfo.cpp:192] New openni device matched.
+[10/11 15:44:16.016894][info][28244][LinuxPal.cpp:209] Create PollingDeviceWatcher!
+[10/11 15:44:16.016951][debug][28244][UsbDeviceEnumerator.cpp:71] Found 1 device(s):
+[10/11 15:44:16.016966][debug][28244][UsbDeviceEnumerator.cpp:74]   - Name: Astra Pro, PID: 0x0403, SN/ID: , connection: USB2.0
+[10/11 15:44:16.016990][info][28244][DeviceManager.cpp:15] Current found device(s): (1)
+[10/11 15:44:16.017003][info][28244][DeviceManager.cpp:24] 	- Name: Astra Pro, PID: 0x0403, SN/ID: , Connection: USB2.0
+[10/11 15:44:16.017008][debug][28244][DeviceManager.cpp:52] DeviceManager construct done!
+[10/11 15:44:16.017017][info][28244][Pipeline.cpp:15] Try to create pipeline with default device.
+[10/11 15:44:16.017025][debug][28244][DeviceManager.cpp:109] DeviceManager  createDevice...
+[10/11 15:44:16.017031][debug][28244][UsbDeviceEnumerator.cpp:297] UsbDeviceEnumerator createDevice...
+[10/11 15:44:16.021648][info][28244][OpenNIHostProtocol.cpp:722] Hardware versions: FW=5.8.22 (14), HW=0, Chip=0, Sensor=0, SYS=12
+[10/11 15:44:16.022068][warning][28244][OpenNIHostProtocol.cpp:739] Get usb core type failed!
+[10/11 15:44:16.022090][debug][28244][OpenNIHostProtocol.cpp:820] Requesting KeepAlive...
+[10/11 15:44:16.022423][debug][28244][OpenNIHostProtocol.cpp:827] Got KeepAlive Reply.
+[10/11 15:44:16.023909][debug][28244][OpenNIHostProtocol.cpp:820] Requesting KeepAlive...
+[10/11 15:44:16.024246][debug][28244][OpenNIHostProtocol.cpp:827] Got KeepAlive Reply.
+[10/11 15:44:16.024268][debug][28244][OpenNIHostProtocol.cpp:845] Getting the fixed params...
+[10/11 15:44:16.024717][debug][28244][OpenNIHostProtocol.cpp:885] Reading sensor serial number...
+[10/11 15:44:16.025074][info][28244][OpenNISensorFirmware.cpp:1192] Sensor serial number:17122413711
+[10/11 15:44:16.025493][debug][28244][OpenNIHostProtocol.cpp:957] Reading sensor platform string...
+[10/11 15:44:16.025826][info][28244][OpenNISensorFirmware.cpp:1220] Firmware version RD108C-009
+[10/11 15:44:16.026173][info][28244][OpenNISensorFirmware.cpp:1226] Device frequency 100
+[10/11 15:44:16.026191][debug][28244][OpenNIHostProtocol.cpp:1034] Update supported depth video modes from firmware
+[10/11 15:44:16.026213][debug][28244][OpenNIHostProtocol.cpp:1070] Reading CMOS 0 supported presets...
+[10/11 15:44:16.035263][debug][28244][OpenNISensorFirmware.cpp:1238] OpenNI camera params read.
+[10/11 15:44:16.035801][debug][28244][OpenNISensorFirmware.cpp:2106] OpenNI camera params read end.
+[10/11 15:44:16.036012][warning][28244][OpenNIHostProtocol.cpp:1107] Support sub cmd error!
+[10/11 15:44:16.036015][warning][28244][OpenNISensorFirmware.cpp:153] OpenNI2 camera don't support Watchdog function!
+[10/11 15:44:16.036017][debug][28244][OpenNISensorIO.cpp:29] Opening endpoint 0x81 for depth...
+[10/11 15:44:16.036027][debug][28244][OpenNISensorIO.cpp:41] Depth endpoint(0x81) was successfully opened.
+[10/11 15:44:16.036030][debug][28244][OpenNISensorIO.cpp:48] Opening endpoint 0x82 for IR...
+[10/11 15:44:16.036032][debug][28244][OpenNISensorIO.cpp:54] IR endpoint(0x82) was successfully opened.
+[10/11 15:44:16.036033][debug][28244][OpenNISensorIO.cpp:60] Opening endpoint 0x84  for image...
+[10/11 15:44:16.036034][debug][28244][OpenNISensorIO.cpp:65] Image endpoint is not supported...
+[10/11 15:44:16.036035][debug][28244][OpenNISensorIO.cpp:75] Opening endpoint 0x83 for misc...
+[10/11 15:44:16.036035][debug][28244][OpenNISensorIO.cpp:80] Misc endpoint is not supported...
+[10/11 15:44:16.036036][debug][28244][OpenNISensorIO.cpp:87] Endpoints open end.
+[10/11 15:44:16.036981][debug][28244][VendorCommand.cpp:205] VendorCommand constructor 559d01f250
+[10/11 15:44:16.036985][debug][28244][OpenNIDevice.cpp:206] init sensor map start!
+[10/11 15:44:16.037004][debug][28244][OpenNIDevice.cpp:220] init sensor map done!
+[10/11 15:44:16.037038][debug][28244][PropertyAccessor.cpp:50] get firmware data success! propertyId: 1000, dataLen: 164
+[10/11 15:44:16.037046][info][28244][AbstractDevice.cpp:120] 	- Firmware version: RD108C-009
+[10/11 15:44:16.037073][debug][28244][AbstractDevice.cpp:359] Not default config found!
+[10/11 15:44:16.037077][debug][28244][OpenNIDevice.cpp:260] Init depth process param start!
+[10/11 15:44:16.037090][debug][28244][OpenNIDevice.cpp:283] Device baseline: 7.5, zpd: 130, zpps: 0.11396666616201401
+[10/11 15:44:16.037091][debug][28244][OpenNIDevice.cpp:306] Init depth process param done!
+[10/11 15:44:16.037426][info][28244][OpenNIDevice.cpp:857] Init depth filter params.
+[10/11 15:44:16.037434][info][28244][OpenNIDevice.cpp:41] OpenNI device created! PID: 0x0403, SN: 17122413711
+[10/11 15:44:16.037437][debug][28244][UsbDeviceEnumerator.cpp:371] Device created successfully! Name: Astra Pro, PID: 0x0403, SN/ID: 
+[10/11 15:44:16.037440][info][28244][DeviceManager.cpp:150] Device created successfully! Name: Astra Pro, PID: 0x0403, SN/ID: 
+[10/11 15:44:16.037442][debug][28244][Pipeline.cpp:29] Pipeline init ...
+[10/11 15:44:16.037453][debug][28244][Pipeline.cpp:168] loadFrameQueueSizeConfig() config queue size: 10
+[10/11 15:44:16.037464][warning][28244][ObException.cpp:5] Current device does not support frame sync!
+[10/11 15:44:16.041767][warning][28244][Pipeline.cpp:45] Execute failure! A libobsensor_exception has occurred!
+	 - where:45#Pipeline
+	 - msg:Current device does not support frame sync!
+	 - type:N11libobsensor31unsupported_operation_exceptionE
+[10/11 15:44:16.041782][info][28244][Pipeline.cpp:47] Pipeline created with device: {name: Astra Pro, sn: 17122413711}, @0x559D208DC0
+[10/11 15:44:16.041799][debug][28244][FrameProcessor.cpp:92] FrameProcessor init with 5 blocks! @367705169040
+[10/11 15:44:16.041811][debug][28244][FrameProcessingBlock.cpp:26] Block created with frame queue size: 10
+[10/11 15:44:16.041814][debug][28244][FrameProcessor.cpp:100]  - block: FrameUnpacker, status: enable
+[10/11 15:44:16.041817][debug][28244][FrameProcessingBlock.cpp:26] Block created with frame queue size: 10
+[10/11 15:44:16.041818][debug][28244][FrameProcessor.cpp:100]  - block: FrameSoftFilter, status: enable
+[10/11 15:44:16.043954][debug][28244][FrameProcessingBlock.cpp:26] Block created with frame queue size: 10
+[10/11 15:44:16.043958][debug][28244][FrameProcessor.cpp:100]  - block: Disparity2DepthConverter, status: enable
+[10/11 15:44:16.043978][debug][28244][FrameProcessingBlock.cpp:26] Block created with frame queue size: 10
+[10/11 15:44:16.043979][debug][28244][FrameProcessor.cpp:100]  - block: D2CFilter, status: disable
+[10/11 15:44:16.043994][debug][28244][FrameProcessingBlock.cpp:26] Block created with frame queue size: 10
+[10/11 15:44:16.043996][debug][28244][FrameProcessor.cpp:100]  - block: PostProcessFilter, status: disable
+[10/11 15:44:16.044236][info][28244][OpenNIDevice.cpp:397] Depth sensor has been created!
+[10/11 15:44:16.044337][debug][28244][OpenNIVideoSensor.cpp:866] Query stream profile! size= 8, sensorType=OB_SENSOR_DEPTH
+[10/11 15:44:16.044350][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 160, height: 120, fps: 30}
+[10/11 15:44:16.044352][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 320, height: 240, fps: 30}
+[10/11 15:44:16.044353][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 640, height: 480, fps: 30}
+[10/11 15:44:16.044354][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 1280, height: 1024, fps: 7}
+[10/11 15:44:16.044356][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 160, height: 120, fps: 30}
+[10/11 15:44:16.044357][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 320, height: 240, fps: 30}
+[10/11 15:44:16.044358][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 640, height: 480, fps: 30}
+[10/11 15:44:16.044359][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 1280, height: 1024, fps: 7}
+[10/11 15:44:16.044376][debug][28244][Pipeline.cpp:227] Pipeline start() start!
+[10/11 15:44:16.044377][info][28244][Pipeline.cpp:188] Check and set config start!
+[10/11 15:44:16.044381][debug][28244][OpenNIVideoSensor.cpp:866] Query stream profile! size= 8, sensorType=OB_SENSOR_DEPTH
+[10/11 15:44:16.044383][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 160, height: 120, fps: 30}
+[10/11 15:44:16.044385][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 320, height: 240, fps: 30}
+[10/11 15:44:16.044386][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 640, height: 480, fps: 30}
+[10/11 15:44:16.044387][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 1280, height: 1024, fps: 7}
+[10/11 15:44:16.044388][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 160, height: 120, fps: 30}
+[10/11 15:44:16.044390][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 320, height: 240, fps: 30}
+[10/11 15:44:16.044391][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 640, height: 480, fps: 30}
+[10/11 15:44:16.044392][debug][28244][OpenNIVideoSensor.cpp:868]  - {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y12, width: 1280, height: 1024, fps: 7}
+[10/11 15:44:16.044394][info][28244][Pipeline.cpp:223] Check and set config done!
+[10/11 15:44:16.044700][debug][28244][PropertyAccessor.cpp:28] get property value success! propertyId: 14, value: {intValue: 0, floatValue: 0}
+[10/11 15:44:16.044922][warning][28244][ObException.hpp:40] Request failed, device response with error, errorCode: 1, msg: 
+[10/11 15:44:16.050657][warning][28244][AbstractDevice.cpp:1271] Execute failure! A libobsensor_exception has occurred!
+	 - where:1271#switchD2CParams
+	 - msg:Request failed, device response with error, errorCode: 1, msg: 
+	 - type:N11libobsensor12io_exceptionE
+[10/11 15:44:16.050660][warning][28244][AbstractDevice.cpp:1271] set align hardware mode int failed!
+[10/11 15:44:16.050663][warning][28244][OpenNIDevice.cpp:896] current d2c param index out of range!
+[10/11 15:44:16.050676][debug][28244][FrameProcessingBlockManager.cpp:75]  FrameProcessingBlockManager started, 0 blocks contained!
+[10/11 15:44:16.050677][info][28244][Pipeline.cpp:288] Try to start streams!
+[10/11 15:44:16.050728][debug][28244][FrameMemoryPool.cpp:35] FrameMemoryPool created!
+[10/11 15:44:16.050737][debug][28244][FrameBufferManager.hpp:65] FrameBufferManager created! frame type:N11libobsensor10DepthFrameE, obj addr:0x559d320130, frame obj total size:0.403MB
+[10/11 15:44:16.050738][debug][28244][FrameMemoryPool.cpp:60] DepthFrame bufferManager created!
+[10/11 15:44:16.050745][info][28244][OpenNIVideoSensor.cpp:455] start OB_SENSOR_DEPTH stream with profile: {type: OB_STREAM_DEPTH, format: OB_FORMAT_Y11, width: 640, height: 480, fps: 30}
+[10/11 15:44:16.050781][debug][28244][OpenNISensorStreams.cpp:79] Firmware stream Depth processor was replaced.
+[10/11 15:44:16.050810][debug][28244][FrameProcessor.cpp:146] Frame processor active blocks chain update: input ->FrameUnpacker -> FrameSoftFilter -> Disparity2DepthConverter -> output
+[10/11 15:44:16.050812][debug][28244][FrameProcessor.cpp:157] FrameProcessor started, 5 blocks contained!
+[10/11 15:44:16.050815][debug][28244][OpenNIVideoSensor.cpp:777] Creating USB Depth read thread... 
+[10/11 15:44:16.050815][debug][28244][OpenNIUSBLinux.cpp:113] Starting a USB read thread...
+[10/11 15:44:16.052095][debug][28244][OpenNISensorParams.cpp:110] set property DepthFormat(3)
+[10/11 15:44:16.052363][debug][28244][OpenNISensorParams.cpp:121] DepthFormat(3)was successfully set.
+[10/11 15:44:16.052367][debug][28244][OpenNISensorParams.cpp:110] set property DepthResolution(1)
+[10/11 15:44:16.053856][debug][28244][OpenNISensorParams.cpp:121] DepthResolution(1)was successfully set.
+[10/11 15:44:16.053859][debug][28244][OpenNISensorParams.cpp:110] set property DepthFPS(30)
+[10/11 15:44:16.054132][debug][28244][OpenNISensorParams.cpp:121] DepthFPS(30)was successfully set.
+[10/11 15:44:16.054134][debug][28244][OpenNISensorParams.cpp:110] set property DepthHoleFilter(1)
+[10/11 15:44:16.054378][debug][28244][OpenNISensorParams.cpp:121] DepthHoleFilter(1)was successfully set.
+[10/11 15:44:16.054380][debug][28244][OpenNISensorParams.cpp:110] set property Registration(0)
+[10/11 15:44:16.054630][debug][28244][OpenNISensorParams.cpp:121] Registration(0)was successfully set.
+[10/11 15:44:16.054633][debug][28244][OpenNISensorParams.cpp:110] set property DepthMirror(0)
+[10/11 15:44:16.054858][debug][28244][OpenNISensorParams.cpp:121] DepthMirror(0)was successfully set.
+[10/11 15:44:16.054861][debug][28244][OpenNISensorParams.cpp:110] set property Stream1Mode(2)
+[10/11 15:44:16.055939][debug][28244][OpenNISensorParams.cpp:121] Stream1Mode(2)was successfully set.
+[10/11 15:44:16.055942][debug][28244][OpenNISensorParams.cpp:110] set property DepthCropEnabled(0)
+[10/11 15:44:16.056152][debug][28244][OpenNISensorParams.cpp:121] DepthCropEnabled(0)was successfully set.
+[10/11 15:44:16.056155][debug][28244][OpenNISensorParams.cpp:110] set property FrameSync(0)
+[10/11 15:44:16.056373][debug][28244][OpenNISensorParams.cpp:121] FrameSync(0)was successfully set.
+[10/11 15:44:16.056394][debug][28244][OpenNIVideoSensor.cpp:549] Stream state changed to STREAM_STATE_STARTING. @OB_SENSOR_DEPTH
+[10/11 15:44:16.056396][debug][28244][Pipeline.cpp:299] Sensor stream started, sensorType=OB_SENSOR_DEPTH
+[10/11 15:44:16.056397][info][28244][Pipeline.cpp:301] Start streams done!
+[10/11 15:44:16.056399][info][28244][Pipeline.cpp:277] Pipeline start done!
+[10/11 15:44:16.056412][warning][28244][ObException.cpp:5] Can not find matched camera param!
+[10/11 15:44:16.157939][debug][28300][FrameBufferManager.cpp:35] New frame buffer allocated=0.403MB, total usage: allocated=0.403MB, max limit=2048.000MB
+[10/11 15:44:16.158041][debug][28300][OpenNIVideoSensor.cpp:726] Stream state changed to STREAM_STATE_STREAMING. @OB_SENSOR_DEPTH
+[10/11 15:44:16.158751][debug][28300][FrameProcessingBlock.cpp:59] FrameProcessingBlock@N11libobsensor13FrameUnpackerE process thread started!
+[10/11 15:44:16.158934][debug][28303][FrameBufferManager.hpp:65] FrameBufferManager created! frame type:N11libobsensor10DepthFrameE, obj addr:0x7f38000b70, frame obj total size:0.586MB
+[10/11 15:44:16.158948][debug][28303][FrameMemoryPool.cpp:60] DepthFrame bufferManager created!
+[10/11 15:44:16.159080][debug][28303][FrameBufferManager.cpp:35] New frame buffer allocated=0.586MB, total usage: allocated=0.990MB, max limit=2048.000MB
+[10/11 15:44:16.160695][debug][28303][FrameProcessingBlock.cpp:59] FrameProcessingBlock@N11libobsensor15FrameSoftFilterE process thread started!
+[10/11 15:44:16.170884][debug][28304][FrameProcessingBlock.cpp:59] FrameProcessingBlock@N11libobsensor24Disparity2DepthConverterE process thread started!
+[10/11 15:44:16.172436][debug][28305][FrameBufferManager.hpp:65] FrameBufferManager created! frame type:N11libobsensor8FrameSetE, obj addr:0x7f28000b70, frame obj total size:0.000MB
+[10/11 15:44:16.172448][debug][28305][FrameMemoryPool.cpp:92] Frameset bufferManager created!
+[10/11 15:44:16.172464][debug][28305][FrameBufferManager.cpp:35] New frame buffer allocated=0.000MB, total usage: allocated=0.990MB, max limit=2048.000MB
+[10/11 15:44:16.174233][debug][28305][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH
+[10/11 15:44:19.200429][debug][28305][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**90 logs in 3026ms**]
+[10/11 15:44:21.178154][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.874527fps
+[10/11 15:44:21.186819][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.916235fps
+[10/11 15:44:25.232522][debug][28305][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**179 logs in 6032ms**]
+[10/11 15:44:26.198168][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:44:26.203680][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.699022fps
+[10/11 15:44:31.216562][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:44:31.226244][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.663549fps
+[10/11 15:44:36.236807][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:44:36.242042][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.704945fps
+[10/11 15:44:37.256229][debug][28305][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**357 logs in 12023ms**]
+[10/11 15:44:41.252072][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.704945fps
+[10/11 15:44:41.263321][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.675364fps
+[10/11 15:44:46.275065][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:44:46.285481][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.669455fps
+[10/11 15:44:51.295146][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:44:51.304485][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:44:56.310744][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.710869fps
+[10/11 15:44:56.315820][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.734583fps
+[10/11 15:45:01.268439][debug][28305][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**713 logs in 24012ms**]
+[10/11 15:45:01.333827][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:45:01.344266][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.628159fps
+[10/11 15:45:06.353889][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:45:06.363211][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:45:10.128094][debug][28303][FrameBufferManager.cpp:35] New frame buffer allocated=0.586MB, total usage: allocated=1.576MB, max limit=2048.000MB
+[10/11 15:45:11.369284][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.704945fps
+[10/11 15:45:11.379519][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.704945fps
+[10/11 15:45:16.392449][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:45:16.397138][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.693104fps
+[10/11 15:45:21.412506][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:45:21.421366][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.657642fps
+[10/11 15:45:26.431020][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:45:26.440659][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:45:31.451323][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.675364fps
+[10/11 15:45:31.456326][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.704945fps
+[10/11 15:45:36.471183][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:45:36.480455][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.657642fps
+[10/11 15:45:41.489591][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:45:41.500377][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.681274fps
+[10/11 15:45:46.509618][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:45:46.520121][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.681274fps
+[10/11 15:45:49.277161][debug][28305][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**1425 logs in 48008ms**]
+[10/11 15:45:51.529989][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:45:51.539342][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:45:56.548245][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.687189fps
+[10/11 15:45:56.557933][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.693104fps
+[10/11 15:46:01.568304][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:46:01.576851][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:46:06.588433][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:46:06.597904][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.675364fps
+[10/11 15:46:11.606908][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:46:11.612916][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.710869fps
+[10/11 15:46:16.627032][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:46:16.637608][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.651741fps
+[10/11 15:46:21.642464][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.704945fps
+[10/11 15:46:21.651921][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.716793fps
+[10/11 15:46:26.665523][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:46:26.673905][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.669455fps
+[10/11 15:46:31.685685][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:46:31.697104][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.657642fps
+[10/11 15:46:36.701581][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.704945fps
+[10/11 15:46:36.715607][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.693104fps
+[10/11 15:46:41.724081][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:46:41.734112][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:46:46.744305][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:46:46.754537][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.681274fps
+[10/11 15:46:49.310373][debug][29024][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**1781 logs in 60032ms, last: 15:46:49.276044**]
+[10/11 15:46:51.759654][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.710869fps
+[10/11 15:46:51.769435][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.710869fps
+[10/11 15:46:56.782839][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:46:56.792908][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.663549fps
+[10/11 15:47:01.802838][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:47:01.812221][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.681274fps
+[10/11 15:47:06.821502][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.687189fps
+[10/11 15:47:06.830988][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.693104fps
+[10/11 15:47:11.841439][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:47:11.852179][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.669455fps
+[10/11 15:47:16.861413][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:47:16.866269][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.716793fps
+[10/11 15:47:21.880034][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:47:21.889514][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.663549fps
+[10/11 15:47:26.899999][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:47:26.912638][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.663549fps
+[10/11 15:47:31.920173][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.675364fps
+[10/11 15:47:31.929636][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.699022fps
+[10/11 15:47:36.938617][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:47:36.949737][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.681274fps
+[10/11 15:47:41.958901][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:47:41.963834][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.716793fps
+[10/11 15:47:46.978698][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:47:46.988081][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.651741fps
+[10/11 15:47:49.316516][debug][29886][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**1782 logs in 60006ms, last: 15:47:49.307424**]
+[10/11 15:47:51.997418][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.687189fps
+[10/11 15:47:52.002049][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.716793fps
+[10/11 15:47:57.017333][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:47:57.025255][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.663549fps
+[10/11 15:48:02.032882][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.710869fps
+[10/11 15:48:02.046092][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.675364fps
+[10/11 15:48:07.056211][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.657642fps
+[10/11 15:48:07.067138][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.675364fps
+[10/11 15:48:12.076044][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.687189fps
+[10/11 15:48:12.086559][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:48:17.091503][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.704945fps
+[10/11 15:48:17.101828][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.710869fps
+[10/11 15:48:22.114569][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:48:22.124447][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.663549fps
+[10/11 15:48:27.134739][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:48:27.145560][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.675364fps
+[10/11 15:48:32.150850][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.704945fps
+[10/11 15:48:32.164769][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:48:37.173345][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:48:37.186180][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.669455fps
+[10/11 15:48:42.193317][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:48:42.202836][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.704945fps
+[10/11 15:48:47.211782][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:48:47.222673][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.681274fps
+[10/11 15:48:49.344528][debug][28305][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**1782 logs in 60028ms**]
+[10/11 15:48:52.231824][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:48:52.241983][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.687189fps
+[10/11 15:48:57.251784][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:48:57.263425][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.669455fps
+[10/11 15:49:02.270359][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.687189fps
+[10/11 15:49:02.280761][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.699022fps
+[10/11 15:49:07.290400][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:49:07.301330][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.675364fps
+[10/11 15:49:12.311256][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.675364fps
+[10/11 15:49:12.329608][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.634050fps
+[10/11 15:49:17.328909][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.699022fps
+[10/11 15:49:17.339260][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.740517fps
+[10/11 15:49:22.349086][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.675364fps
+[10/11 15:49:22.357858][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.693104fps
+[10/11 15:49:27.369065][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:49:27.373662][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.704945fps
+[10/11 15:49:32.387796][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.693104fps
+[10/11 15:49:32.399665][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.645842fps
+[10/11 15:49:37.407724][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:49:37.415473][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.704945fps
+[10/11 15:49:42.423292][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.704945fps
+[10/11 15:49:42.435294][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.681274fps
+[10/11 15:49:47.446308][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:49:47.456346][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.675364fps
+[10/11 15:49:49.378741][debug][30809][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**1781 logs in 60034ms, last: 15:49:49.342836**]
+[10/11 15:49:52.466176][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.681274fps
+[10/11 15:49:52.474594][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.693104fps
+[10/11 15:49:57.481765][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.710869fps
+[10/11 15:49:57.491676][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.699022fps
+[10/11 15:50:02.504813][debug][28300][OpenNIVideoSensor.cpp:716] OB_SENSOR_DEPTH Streaming... frameRate=29.663549fps
+[10/11 15:50:02.514363][debug][28305][Pipeline.cpp:323] Pipeline streaming... frameset output rate=29.663549fps
+[10/11 15:50:07.510612][info][28244][Pipeline.cpp:411] Try to stop pipeline!
+[10/11 15:50:07.510643][info][28244][Pipeline.cpp:383] Try to stop streams!
+[10/11 15:50:07.510674][debug][28244][OpenNIVideoSensor.cpp:787] Shutting down USB Depth read thread...
+[10/11 15:50:07.510677][debug][28244][OpenNIUSBLinux.cpp:346] Shutdown read thread...
+[10/11 15:50:07.511807][debug][28300][OpenNIUSBLinux.cpp:218] Cancel request transfer(7)...
+[10/11 15:50:07.511946][warning][28300][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:Success, number:0 
+[10/11 15:50:07.512506][debug][28300][OpenNIUSBLinux.cpp:218] Cancel request transfer(8)...
+[10/11 15:50:07.513205][debug][28297][RequestLibusb.cpp:21] transfer cancelled!
+[10/11 15:50:07.613106][warning][28300][OpenNIUSBLinux.cpp:245] Endpoint  0x81, Buffer8: Failed waiting on asynch transfer event:OB_EVENT_TIMEOUT
+[10/11 15:50:07.613148][warning][28300][OpenNIUSBLinux.cpp:204] exist(0) read thread(9)
+[10/11 15:50:07.613341][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613417][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613428][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613439][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613487][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613497][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613507][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613518][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613528][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613538][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613549][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613558][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613569][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613579][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613588][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613600][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613610][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613621][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613630][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613640][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613650][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613657][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613664][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613671][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613677][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613684][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613691][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613696][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613706][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613714][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613720][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613730][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613738][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613749][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613759][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613770][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613780][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613791][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613801][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613811][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613821][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613831][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613840][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613849][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613858][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613867][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613877][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613885][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613890][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613896][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613901][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613908][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613918][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613928][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613938][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613948][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613957][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613967][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613977][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613987][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.613997][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.614008][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.614018][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.614029][warning][28244][MessengerLibusb.cpp:82] usb_request_cancel returned error, endpoint:129, error:No data available, number:61 
+[10/11 15:50:07.614039][debug][28244][OpenNIUSBLinux.cpp:381] Shutdown read thread end...
+[10/11 15:50:07.614048][debug][28244][OpenNISensorParams.cpp:110] set property Stream1Mode(0)
+[10/11 15:50:07.615324][debug][28244][OpenNISensorParams.cpp:121] Stream1Mode(0)was successfully set.
+[10/11 15:50:07.616284][debug][28244][FrameProcessingBlock.cpp:74] Process thread stoped! N11libobsensor13FrameUnpackerE@0x559d31f610 
+[10/11 15:50:07.617214][debug][28244][FrameProcessingBlock.cpp:74] Process thread stoped! N11libobsensor15FrameSoftFilterE@0x559d31b9e0 
+[10/11 15:50:07.617287][debug][28244][FrameProcessingBlock.cpp:74] Process thread stoped! N11libobsensor24Disparity2DepthConverterE@0x559d31f940 
+[10/11 15:50:07.617295][debug][28244][FrameProcessor.cpp:167] FrameProcessor stoped!
+[10/11 15:50:07.617313][debug][28244][OpenNISensorStreams.cpp:114] Erase FW Stream Depth
+[10/11 15:50:07.617321][debug][28244][OpenNISensorStreams.cpp:124] released FW Stream strType
+[10/11 15:50:07.617336][info][28244][OpenNIVideoSensor.cpp:711] OpenNI Depth stream stop completed.
+[10/11 15:50:07.617365][info][28244][Pipeline.cpp:396] Sensor stream stopped, sensorType=OB_SENSOR_DEPTH
+[10/11 15:50:07.617371][info][28244][Pipeline.cpp:402] Stop streams done!
+[10/11 15:50:07.617402][debug][28244][OpenNISensorParams.cpp:110] set property Registration(0)
+[10/11 15:50:07.617648][debug][28244][OpenNISensorParams.cpp:121] Registration(0)was successfully set.
+[10/11 15:50:07.617721][debug][28244][PropertyAccessor.cpp:17] set property value success! propertyId: 42, value: {intValue: 0, floatValue: 0}
+[10/11 15:50:07.617750][debug][28244][FrameProcessingBlockManager.cpp:84] FrameProcessingBlockManager stoped!
+[10/11 15:50:07.617755][debug][28244][FrameProcessingBlockManager.cpp:20] Processing block list cleared!
+[10/11 15:50:07.617759][info][28244][Pipeline.cpp:443] Stop pipeline done!
+[10/11 15:50:07.713530][debug][28244][Pipeline.cpp:68] Pipeline deInit start!
+[10/11 15:50:07.713566][info][28244][Pipeline.cpp:75] Pipeline destroyed! @0x559D208DC0
+[10/11 15:50:07.713614][info][28244][OpenNIDevice.cpp:45] OpenNI device destroyed! PID: 0x0403, SN: 17122413711
+[10/11 15:50:07.713668][info][28244][OpenNIVideoSensor.cpp:1023] OpenNIVideoSensor destroyed! sensorType=OB_SENSOR_DEPTH
+[10/11 15:50:07.713742][debug][28244][FrameProcessor.cpp:809] try remove eventId: PropertyValueUpdate
+[10/11 15:50:07.713767][debug][28244][FrameProcessor.cpp:809] try remove eventId: DepthStreamProfileChanged
+[10/11 15:50:07.713794][debug][28244][FrameProcessor.cpp:113] FrameProcessor destroyed! @367705169040
+[10/11 15:50:07.714376][debug][28244][VendorCommand.cpp:213] destructor 559d01f250
+[10/11 15:50:07.714434][debug][28244][VendorCommand.cpp:468] disableHeartBeat heartBeatHelper_: 0
+[10/11 15:50:07.714467][debug][28244][HostProtocol.cpp:140] ~HostProtocol()
+[10/11 15:50:07.714573][debug][28299][HostProtocol.cpp:168] emitTranDataFutureSignalThread_ finish
+[10/11 15:50:07.714947][debug][28244][Context.cpp:81] Context destroying ...
+[10/11 15:50:07.714956][debug][28244][DeviceManager.cpp:56] DeviceManager destroy ...
+[10/11 15:50:07.714958][debug][28244][DeviceManager.cpp:64] DeviceManager Destructors done
+[10/11 15:50:07.715530][debug][28244][FrameBufferManager.hpp:72] FrameBufferManager destroying...! frame type: N11libobsensor8FrameSetE,  obj addr:0x7f28000b70
+[10/11 15:50:07.715555][debug][28244][FrameBufferManager.cpp:54] Frame buffer released=0.000MB, total usage: allocated=1.576MB, max limit=2048.000MB
+[10/11 15:50:07.715560][debug][28244][FrameBufferManager.cpp:69] AbstractFrameBufferManager destroyed! manager type:N11libobsensor26AbstractFrameBufferManagerE,  obj addr:0x7f28000b70
+[10/11 15:50:07.715565][debug][28244][FrameBufferManager.hpp:72] FrameBufferManager destroying...! frame type: N11libobsensor10DepthFrameE,  obj addr:0x7f38000b70
+[10/11 15:50:07.715581][debug][28244][FrameBufferManager.cpp:54] Frame buffer released=0.586MB, total usage: allocated=0.990MB, max limit=2048.000MB
+[10/11 15:50:07.715585][debug][28244][FrameBufferManager.cpp:54] Frame buffer released=0.586MB, total usage: allocated=0.403MB, max limit=2048.000MB
+[10/11 15:50:07.715594][debug][28244][FrameBufferManager.cpp:69] AbstractFrameBufferManager destroyed! manager type:N11libobsensor26AbstractFrameBufferManagerE,  obj addr:0x7f38000b70
+[10/11 15:50:07.715598][debug][28244][FrameBufferManager.hpp:72] FrameBufferManager destroying...! frame type: N11libobsensor10DepthFrameE,  obj addr:0x559d320130
+[10/11 15:50:07.715628][debug][28244][FrameBufferManager.cpp:54] Frame buffer released=0.403MB, total usage: allocated=0.000MB, max limit=2048.000MB
+[10/11 15:50:07.715630][debug][28244][FrameBufferManager.cpp:69] AbstractFrameBufferManager destroyed! manager type:N11libobsensor26AbstractFrameBufferManagerE,  obj addr:0x559d320130
+[10/11 15:50:07.715634][info][28244][Context.cpp:84] Context destroyed
+[10/11 15:50:07.715799][debug][31269][Pipeline.cpp:319] Frame received on pipeline! type=OB_FRAME_DEPTH [**539 logs in 18337ms, last: 15:50:07.501357**]

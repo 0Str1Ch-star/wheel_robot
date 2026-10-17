@@ -25,6 +25,8 @@
     # 直接跑源码，不用编译
     python3 src/wheel_robot/scripts/dual_line_follower_illum.py --ros-args \
         -p enable_motion:=false -p show_debug_window:=true
+        
+    ros2 run wheel_robot dual_line_follower_illum.py enable_motion:=true 
 
     # 回放录像
  python3 src/wheel_robot/scripts/dual_line_follower_illum.py --ros-args \

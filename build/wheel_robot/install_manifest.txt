@@ -110,6 +110,7 @@
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/depth_preview.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/line_follower.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/dual_line_follower.py
+/home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/dual_line_follower_illum.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/icn.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/shiwai.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/lesson17_vision_follower.py

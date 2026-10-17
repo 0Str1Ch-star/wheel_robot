@@ -25,7 +25,7 @@ from rclpy.signals import SignalHandlerOptions
 ENABLE_MOTION = True
 
 # ---------- 最常用：速度参数 ----------
-NORMAL_SPEED = 0.60
+NORMAL_SPEED = 0.80
 MIN_SPEED = 0.60
 MAX_ANGULAR_SPEED = 0.56
 CURVE_SLOWDOWN = 0.45

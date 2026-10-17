@@ -25,7 +25,7 @@ from rclpy.signals import SignalHandlerOptions
 ENABLE_MOTION = True
 
 # ---------- 最常用：速度参数 ----------
-NORMAL_SPEED = 0.60
+NORMAL_SPEED = 0.80
 MIN_SPEED = 0.60
 MAX_ANGULAR_SPEED = 0.56
 CURVE_SLOWDOWN = 0.45
@@ -74,7 +74,7 @@ DYNAMIC_V_PERCENTILE = 75.0
 DYNAMIC_V_OFFSET = 8.0
 DYNAMIC_V_MIN = 90               # 原 115：直接高于白线的 V，白线永远过不了
 DYNAMIC_V_MAX = 225
-STRONG_WHITE_V_MARGIN = 28       # 原 28：暗画面下太苛刻12
+STRONG_WHITE_V_MARGIN = 12       # 原 28：暗画面下太苛刻12
 ADAPTIVE_BLOCK_SIZE = 31
 ADAPTIVE_C = -5.0
 LOCAL_DARK_C = 7.0

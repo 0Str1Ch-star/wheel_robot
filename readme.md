@@ -156,3 +156,5 @@ dual_line_follower.py 也加了 video_source 回放（用法同单线版）：
 
 # dual_line_follower_illum.py
 光照归一化，解决了局部过亮的问题
+图像处理基本没什么问题，主要是导线逻辑不太行，建议忽略far
+install/recordings_illum/dual_white_line_20261011_162200.avi
