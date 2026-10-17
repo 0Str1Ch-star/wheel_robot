@@ -1098,6 +1098,7 @@ class ShiWaiFollower(Node):
         self._previous_control_time = 0.0
         self._have_error = False
         self._last_log = 0.0
+        self._last_status = 0.0
         self._exit_requested = False
         self._closing = False
         self._window_ready = False
@@ -1904,6 +1905,7 @@ class ShiWaiFollower(Node):
         )
         self._update_mission(scene, now)
         self._check_bridge_climb_end(now)
+        self._log_status(now, result, scene)
 
         if self._mode == self.MODE_STOP:
             self._hold_sidewalk_stop(result, now)
@@ -2376,6 +2378,45 @@ class ShiWaiFollower(Node):
             return
         self._announce(
             f"识别画面已保存：{path}，共 {self._video_frames} 帧"
+        )
+
+    def _log_status(
+        self, now: float, result: DetectionResult, scene: SceneObservation
+    ) -> None:
+        """1Hz 状态快照，让终端能直接看到状态机在干什么。
+
+        _log() 只在出问题时打印（摄像头不可用/丢线），正常跑起来终端一片安静，
+        看不出当前 mode、已经过了哪几关、场景分数在什么水平。
+        这里每 status_log_period 秒打一行完整快照，调参和排查误触发都靠它。
+        """
+        if now - self._last_status < self.status_log_period:
+            return
+        self._last_status = now
+
+        def mark(flag: bool) -> str:
+            return "Y" if flag else "-"
+
+        progress = (
+            f"bridge={mark(self._passed_bridge)}"
+            f" walk={mark(self._passed_sidewalk)}"
+            f" tunnel={mark(self._passed_tunnel)}"
+            f" finish={mark(self._passed_finish)}"
+        )
+        scenes = (
+            f"hz={scene.hazard_score:.2f}{mark(scene.hazard)}"
+            f" near={mark(scene.hazard_near)}"
+            f" cw={scene.crosswalk_score:.2f}/{scene.stripe_count}"
+            f"{mark(scene.crosswalk)}"
+            f" fn={scene.finish_score:.2f}/{scene.finish_blobs}"
+            f"{mark(scene.finish)}"
+        )
+        self.get_logger().info(
+            f"[状态] {self._mode} {progress}"
+            f" | 线 {result.reason} conf={result.confidence:.2f}"
+            f" L={result.left_line_rows} R={result.right_line_rows}"
+            f" err={result.error:+.3f}"
+            f" | 场景 {scenes}"
+            f" | h={self._current_height:.2f}"
         )
 
     def _log(self, now: float, text: str) -> None:

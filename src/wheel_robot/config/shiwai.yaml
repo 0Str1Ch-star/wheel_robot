@@ -52,13 +52,13 @@ shiwai:
     black_saturation_max: 110
     crosswalk_top_ratio: 0.52
     crosswalk_bottom_ratio: 0.86
-    hazard_top_ratio: 0.08
+    hazard_top_ratio: 0.08   #0.08
     hazard_bottom_ratio: 0.72
     side_margin_ratio: 0.03
     min_crosswalk_stripes: 4
-    min_hazard_transitions: 1.8
+    min_hazard_transitions: 3.5 #1.8
     crosswalk_confirm_frames: 4.0
-    hazard_confirm_frames: 4.0
+    hazard_confirm_frames: 10.0  #4.0
     hazard_gone_frames: 12.0
 
     # 人行道停稳后再计时；腿高和下蹲。现场请改 scripts/shiwai.py 文件开头。

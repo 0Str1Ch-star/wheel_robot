@@ -542,7 +542,8 @@ def main() -> int:
             print_measure(measure_lane_width(frame, params))
         result, scene = analyse(frame, detectors)
         canvas = compose(frame, result, scene, params, args.image.stem)
-        out_path = args.out / f"{args.image.stem}.png"
+        # 必须换个名字：输入若是 snap_raw.png，原写法会写出同名文件把它覆盖掉。
+        out_path = args.out / f"{args.image.stem}_check.png"
         cv2.imwrite(str(out_path), canvas)
         word, _ = verdict(result, scene)
         print(f"\n{word}   conf={result.confidence:.2f}  "

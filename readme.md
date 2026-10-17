@@ -158,3 +158,10 @@ dual_line_follower.py 也加了 video_source 回放（用法同单线版）：
 光照归一化，解决了局部过亮的问题
 图像处理基本没什么问题，主要是导线逻辑不太行，建议忽略far
 install/recordings_illum/dual_white_line_20261011_162200.avi
+
+# shiwai.py
+调试第一天
+opencv处理有待优化
+开局直接看到单边桥的胶带，就默认进单边桥模式导致平地起舞？
+不应该消失而且过一小会再翘吗？
+没搞懂，明天再修

@@ -227,9 +227,11 @@ class DualWhiteLineDetector:
         return FAR_LANE_WIDTH_RATIO
 
     def _make_mask(self, roi_bgr: np.ndarray) -> Tuple[np.ndarray, int]:
+        """仅提取黄色赛道边界；暂不额外添加梯形赛道区域限制。"""
         hsv = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
+        # 保留动态亮度值用于兼容原有调试信息；边线掩膜不再使用白色/冷色阈值。
         low_saturation = s <= WHITE_S_MAX
         sample = v[low_saturation]
         if sample.size >= 64:
@@ -240,66 +242,15 @@ class DualWhiteLineDetector:
             np.clip(base_v + DYNAMIC_V_OFFSET, DYNAMIC_V_MIN, DYNAMIC_V_MAX)
         )
 
-        absolute_bright = v >= dynamic_v
-        local_bright = cv2.adaptiveThreshold(
-            v,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            self._clip_odd(ADAPTIVE_BLOCK_SIZE),
-            ADAPTIVE_C,
-        ) > 0
-        local_dark = cv2.adaptiveThreshold(
-            v,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV,
-            self._clip_odd(ADAPTIVE_BLOCK_SIZE),
-            LOCAL_DARK_C,
-        ) > 0
-        strong_bright = v >= min(255, dynamic_v + STRONG_WHITE_V_MARGIN)
-
-        red_1 = (
-            (h >= RED_H_LOW_1)
-            & (h <= RED_H_HIGH_1)
-            & (s >= RED_S_MIN)
-            & (v >= RED_V_MIN)
-        )
-        red_2 = (
-            (h >= RED_H_LOW_2)
-            & (h <= RED_H_HIGH_2)
-            & (s >= RED_S_MIN)
-            & (v >= RED_V_MIN)
-        )
-        bright_white = (
-            (h >= WHITE_H_MIN)
-            & (h <= WHITE_H_MAX)
-            & low_saturation
-            & absolute_bright
-            & (local_bright | strong_bright)
-            & ~(red_1 | red_2)
-        )
-        cool_lane_paint = (
-            (h >= COOL_LINE_H_MIN)
-            & (h <= COOL_LINE_H_MAX)
-            & (s >= COOL_LINE_S_MIN)
-            & (s <= COOL_LINE_S_MAX)
-            & (v >= COOL_LINE_V_MIN)
-            & (local_dark | local_bright | strong_bright)
-            & ~(red_1 | red_2)
-        )
-        # 黄色胶带单独按 HSV 绝对范围识别，不依赖局部亮/暗阈值；
-        # 这样在黄线处于阴影或背景亮度变化时，也能保留线条像素。
+        # 只识别黄色胶带。白色/灰色地面不会再通过独立的白色阈值进入掩膜。
         yellow_lane_paint = (
             (h >= YELLOW_LINE_H_MIN)
             & (h <= YELLOW_LINE_H_MAX)
             & (s >= YELLOW_LINE_S_MIN)
             & (v >= YELLOW_LINE_V_MIN)
-            & ~(red_1 | red_2)
         )
-        white = bright_white | cool_lane_paint | yellow_lane_paint
+        mask = yellow_lane_paint.astype(np.uint8) * 255
 
-        mask = white.astype(np.uint8) * 255
         mask = cv2.morphologyEx(
             mask, cv2.MORPH_OPEN, self._open_kernel, iterations=OPEN_ITERATIONS
         )
