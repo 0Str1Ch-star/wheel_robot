@@ -26,9 +26,9 @@ shiwai:
     search_right_ratio: 1.0
 
     # 现场泡沫黄线偏浅，饱和度不要设太高。
-    yellow_h_min: 12
+    yellow_h_min: 18
     yellow_h_max: 42
-    yellow_s_min: 50
+    yellow_s_min: 33
     yellow_v_min: 70
     min_boundary_lane_contrast: 18.0
     morphology_kernel: 3
@@ -38,9 +38,9 @@ shiwai:
     expected_line_width_ratio: 0.08
     width_tolerance_ratio: 0.08
 
-    min_lane_width_ratio: 0.32
+    min_lane_width_ratio: 0.30
     max_lane_width_ratio: 0.82
-    expected_lane_width_ratio: 0.72
+    expected_lane_width_ratio: 0.49
     lane_width_tolerance_ratio: 0.30
     max_center_jump_ratio: 0.04
     min_valid_row_fraction: 0.12
@@ -56,11 +56,23 @@ shiwai:
     hazard_bottom_ratio: 0.72
     side_margin_ratio: 0.03
     min_crosswalk_stripes: 4
-    min_hazard_transitions: 3.5 #1.8
+    min_hazard_transitions: 1.8 #1.8
     crosswalk_confirm_frames: 4.0
-    hazard_confirm_frames: 10.0  #4.0
+    hazard_confirm_frames: 4.0  #4.0
     hazard_gone_frames: 12.0
 
+    # ---------- 单边桥：靠「近端胶带消失」判定到桥头，这两个是主旋钮 ----------
+    # 胶带消失后再等多久才右偏 + 侧倾（就是“消失之后过一小会再翘”）。
+    #   右偏太早（车还在平地就开始歪）→ 调大
+    #   太晚（轮子已经上坡/从边上滑下去）→ 调小，甚至填 0
+    bridge_engage_after_gone_seconds: 0.0
+    # 「近端胶带消失」要连续多少帧才算数。控制 15Hz，3 帧 = 0.2 秒。
+    # 以前误用了 hazard_gone_frames(12 帧 = 0.8 秒)，那份延迟就是从这来的。
+    # 调小能更快上桥，但太小(1帧)容易被胶带闪回误触发；建议 2~4。
+    bridge_engage_confirm_frames: 2.0
+    # 兜底：胶带一直不消失（被遮挡/持续闪回）也必须开始动作，否则上不了桥。
+    # 必须比上面那项大，否则定时器会抢先、把胶带信号废掉。
+    bridge_engage_timeout_seconds: 12.0
     # 人行道停稳后再计时；腿高和下蹲。现场请改 scripts/shiwai.py 文件开头。
     sidewalk_stop_seconds: 5.0
     stand_height: 0.25

@@ -160,8 +160,41 @@ dual_line_follower.py 也加了 video_source 回放（用法同单线版）：
 install/recordings_illum/dual_white_line_20261011_162200.avi
 
 # shiwai.py
+加入了日志输出，改了一些yaml里的参数
 调试第一天
 opencv处理有待优化
 开局直接看到单边桥的胶带，就默认进单边桥模式导致平地起舞？
 不应该消失而且过一小会再翘吗？
 没搞懂，明天再修
+
+# /home/orangepi/wheel_robot/src/wheel_robot/scripts/shiwai_far_line_fixed.py
+① 巡线专用黄线阈值（分离出来了）
+参数组	用途	H	S	V
+lane_yellow_*（新增）	巡线（黄泡沫边缘）	24~40	≥35	≥70
+yellow_*（保留原值）	场景识别（黄黑胶带 / 人行道 / 终点）	12~42	≥50	≥70
+注册成了 ROS 参数，并在 _validate_parameters() 里加了范围校验。DualYellowLineDetector 现在吃 lane_yellow_*，TrackSceneDetector 还是吃 yellow_*。
+
+
+② 巡线掩膜里排除「黄黑条纹」
+新增 _stripe_exclusion_mask()（约 78 行），只在巡线掩膜里工作，不碰 TrackSceneDetector。
+
+它替换掉了原来更粗暴的做法：
+
+黄边旁边总有地面阴影 → 必然误删正常黄边。
+
+新版要求局部重复的黄/黑交替才删：至少 4 段 run、跨度 ≤ 画面宽 16%、单段 ≥2px、未知色间隔 ≤4px，横竖两个方向都扫，最后按黄色连通块删（要求该块 ≥15% 面积被条纹支持）。
+
+这个判据比「靠近黑色」合理得多。
+
+③ 掩膜改成在整幅图上算
+注释说明：条纹证据要在完整图像里确认，否则搜索框会把胶带裁成一小块黄色，判据失效。巡线 ROI 本身没扩大。
+# shiwai.py
+修改了单边巡线的虚拟中点
+
+ 0.38(=243px) 是估出来的，实测偏大：shiwai_20261018_142252.avi 第 0 帧
+ 双边 pairs=146、lane=397px，真实半宽只有 198px = 0.31。
+ 偏大意味着“虚拟中点”比真中点靠右 → 车会一直往右抖：
+   左线在 x=100 时，0.38 → 虚拟中点 343 > 320 → 判成“该右转”，方向反了。
+SINGLE_LEFT_HALF_RATIO = 0.31
+SINGLE_RIGHT_HALF_RATIO = 0.31
+BRIDGE_OFFSET_CM=10,取消了偏置带来的不必要的右边

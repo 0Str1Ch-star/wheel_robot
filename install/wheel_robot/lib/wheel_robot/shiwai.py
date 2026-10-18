@@ -36,17 +36,39 @@ BRIDGE_OFFSET_CM = -10.0
 
 # 过单边桥时的横滚（度）。负数为左倾（左腿压低、右腿抬高），正数为右倾。
 # 桥在右侧：左横滚让右轮更容易上到桥面。下桥后自动回到 0。
-BRIDGE_ROLL_DEG = 15.0
+BRIDGE_ROLL_DEG =  0     #15
 # 横滚变化速度（度/秒）。从 0 到 15° 大约 0.5 秒。
 ROLL_RATE_DEG = 30.0
 # 程序启动后这么多秒才允许左横滚，避免一出发就歪。神tm定时器
 BRIDGE_ROLL_DELAY_SECONDS = 4.0
 
+# 「到桥头」的主信号：近端胶带消失（hazard_near 由 True 变 False）。
+# 实测 course_20261017_170916.avi（min_hazard_transitions=1.8）：
+#   hazard_near: t=0.7s 起连续 True，到 t≈9.0s 转 False（偶有单帧闪回）
+#   hazard(整幅): 全程只有 9 帧孤立 True → 不能用它的消失当信号
+# 胶带在画面里从远到近「往下走」，离开近端带(0.52~0.92)就说明已经贴到桥头。
+# 胶带消失后再等这么久才右偏 + 侧倾（就是那句「消失之后过一小会再翘」）。
+# 实跑发现右偏太早 → 调大；太晚（轮子已经上坡）→ 调小或填 0。
+BRIDGE_ENGAGE_AFTER_GONE_SECONDS = 0.0
+# 「近端胶带消失」需要连续多少帧才算数。控制频率 15Hz，所以 3 帧 = 0.2 秒。
+# 以前这里用的是 hazard_gone_frames(=12 帧=0.8 秒)，但那个参数还被隧道和
+# “已过桥”判定共用，不能随便改小，所以单独拆一个。
+# 调太小（1 帧）容易被胶带瞬时闪回误触发；建议 2~4。
+BRIDGE_ENGAGE_CONFIRM_FRAMES = 3.0
+# TIMEOUT 兜底：胶带一直不消失（被遮挡/持续闪回）也必须开始动作，否则上不了桥。
+# 必须比“胶带消失 + AFTER_GONE”大，否则定时器会抢先、把胶带信号废掉。
+BRIDGE_ENGAGE_TIMEOUT_SECONDS = 12.0
+
 # 只看到一侧黄线时，虚拟中点相对那条内沿的假定半宽（× 画面宽度）。
 # 左：虚拟中点 = 左内沿 + 半宽。太小贴左，太大贴右。
 # 右：虚拟中点 = 右内沿 − 半宽。太小贴右，太大贴左。
-SINGLE_LEFT_HALF_RATIO = 0.38
-SINGLE_RIGHT_HALF_RATIO = 0.38
+#
+# 0.38(=243px) 是估出来的，实测偏大：出图见 outdoor_check/mask_compare.png。
+# 起点帧用 h>=18/s>=33 量到真实车道 316px，单边时近处半宽约 150px ≈ 0.24。
+# 半宽偏大的后果是方向反掉：左线在 x=100 时，0.38 算出虚拟中点 343 > 320，
+# 判成“该右转”，而真中点 298 在左边应该左转 → 车一路往右跑。
+SINGLE_LEFT_HALF_RATIO = 0.24
+SINGLE_RIGHT_HALF_RATIO = 0.24
 TUNNEL_SINGLE_LEFT_HALF_RATIO = 0.50
 # 隧道里现在只能看到右侧海绵：半宽太小会贴右。还贴右就再加大，例如 0.52、0.55。
 TUNNEL_SINGLE_RIGHT_HALF_RATIO = 0.50
@@ -84,7 +106,7 @@ NEAR_LOCK_RATIO = 0.35
 
 # ---------- 速度 ----------
 # 直线巡线目标速度（m/s）。整体加快或减慢主要改这个。
-FORWARD_SPEED = 0.30
+FORWARD_SPEED = 0.30   #0.3
 
 # 转弯自动降速后的最低前进速度（m/s）。
 MINIMUM_FORWARD_SPEED = 0.20
@@ -1113,6 +1135,14 @@ class ShiWaiFollower(Node):
         self._bridge_started: Optional[float] = None
         self._bridge_near_since: Optional[float] = None
         self._bridge_climb_ended = False
+        # 看见胶带 ≠ 到桥头。_bridge_seen_at 记第一次看见的时刻，
+        # _bridge_engaged 才决定要不要右偏+侧倾。
+        self._bridge_seen_at: Optional[float] = None
+        self._bridge_engaged = False
+        self._bridge_engaged_at: Optional[float] = None
+        # 近端胶带「消失」的连续帧计数，用于判定已到桥头
+        self._hazard_near_gone_frames = 0
+        self._near_gone_at: Optional[float] = None
         self._cleared_bridge = False
         self._cleared_at: Optional[float] = None
         self._left_line_locked = False
@@ -1262,6 +1292,10 @@ class ShiWaiFollower(Node):
             "crosswalk_confirm_frames": 4.0,
             "hazard_confirm_frames": 4.0,
             "hazard_gone_frames": 12.0,
+            # 单边桥：近端胶带消失后再等多久才右偏+侧倾；以及兜底超时。
+            "bridge_engage_after_gone_seconds": BRIDGE_ENGAGE_AFTER_GONE_SECONDS,
+            "bridge_engage_confirm_frames": BRIDGE_ENGAGE_CONFIRM_FRAMES,
+            "bridge_engage_timeout_seconds": BRIDGE_ENGAGE_TIMEOUT_SECONDS,
             "sidewalk_stop_seconds": SIDEWALK_STOP_SECONDS,
             "stand_height": STAND_HEIGHT,
             "crouch_height": CROUCH_HEIGHT,
@@ -1357,8 +1391,10 @@ class ShiWaiFollower(Node):
         self.min_crosswalk_stripes = float(MIN_CROSSWALK_STRIPES)
 
     def _on_bridge_section(self) -> bool:
+        # 用 _bridge_engaged 而不是 _passed_bridge：
+        # 看见胶带只代表「桥在前方」，真正右偏+侧倾要等桥头（见 _update_mission）。
         return (
-            self._passed_bridge
+            self._bridge_engaged
             and not self._cleared_bridge
             and not self._passed_sidewalk
         )
@@ -1491,6 +1527,14 @@ class ShiWaiFollower(Node):
             raise ValueError("bridge_climb_speed 必须大于 0")
         if self.bridge_climb_seconds <= 0.0:
             raise ValueError("bridge_climb_seconds 必须大于 0")
+        if self.bridge_engage_after_gone_seconds < 0.0:
+            raise ValueError("bridge_engage_after_gone_seconds 不能为负")
+        if self.bridge_engage_confirm_frames < 1.0:
+            raise ValueError("bridge_engage_confirm_frames 至少 1 帧")
+        if self.bridge_engage_timeout_seconds <= self.bridge_engage_after_gone_seconds:
+            raise ValueError(
+                "bridge_engage_timeout_seconds 必须大于 bridge_engage_after_gone_seconds"
+            )
         if self.tunnel_pass_seconds <= 0.0:
             raise ValueError("tunnel_pass_seconds 必须大于 0")
         if (
@@ -1684,7 +1728,11 @@ class ShiWaiFollower(Node):
         if saw_bridge:
             if not self._passed_bridge:
                 self._passed_bridge = True
-                self._announce("进入单边桥区域：往右偏，右轮上桥")
+                self._bridge_seen_at = now
+                self._announce(
+                    "发现前方单边桥胶带：先保持直行，"
+                    f"等胶带消失/满 {self.bridge_engage_timeout_seconds:.0f} 秒再往右偏上桥"
+                )
             if self._bridge_started is None:
                 self._bridge_started = now
                 self._bridge_climb_ended = False
@@ -1701,25 +1749,79 @@ class ShiWaiFollower(Node):
                     f"{BRIDGE_PASS_SECONDS:.1f} 秒后停车，向左找左侧海绵"
                 )
 
+        # 到了桥头才右偏 + 侧倾。判据优先用「近端胶带消失」，
+        # 定时器只做兜底（胶带一直不消失时不能永远不上桥）。
+        near_gone = self._confirm(
+            "_hazard_near_gone_frames",
+            (not scene.hazard_near) and self._hazard_near_frames == 0,
+            self.bridge_engage_confirm_frames,
+        )
+        seen_for = (
+            0.0 if self._bridge_seen_at is None else now - self._bridge_seen_at
+        )
+        if near_gone and self._passed_bridge:
+            if self._near_gone_at is None:
+                self._near_gone_at = now
+                self._announce("近端胶带已消失，再过一小会开始右偏上桥")
+        elif not near_gone:
+            # 胶带又出现了（闪回）→ 重新计时，宁可晚一点也不要提前右偏。
+            self._near_gone_at = None
+        gone_for = (
+            0.0 if self._near_gone_at is None else now - self._near_gone_at
+        )
+        if (
+            self._passed_bridge
+            and not self._bridge_engaged
+            and not self._cleared_bridge
+            and not self._passed_sidewalk
+            and self._bridge_seen_at is not None
+            and (
+                # 必须真的“消失过”才比延迟；否则 AFTER_GONE=0 时 gone_for
+                # 默认也是 0，"0 >= 0" 会让条件刚看见胶带就成立。
+                (
+                    self._near_gone_at is not None
+                    and gone_for >= self.bridge_engage_after_gone_seconds
+                )
+                or seen_for >= self.bridge_engage_timeout_seconds
+            )
+        ):
+            self._bridge_engaged = True
+            self._bridge_engaged_at = now
+            # 冲桥计时和“胶带消失”计数都从这一刻重新开始，否则远处看见时
+            # 累积的计时会在刚上桥的瞬间就把桥判成“已过”。
+            self._bridge_near_since = now
+            self._hazard_gone_frames = 0
+            self._hazard_near_gone_frames = 0
+            self._near_gone_at = None
+            self._bridge_climb_ended = False
+            self._announce(
+                f"到桥头（胶带消失后 {gone_for:.1f}s / 已等 {seen_for:.1f}s）："
+                f"右偏 {BRIDGE_OFFSET_CM:+.0f} cm、侧倾 "
+                f"{BRIDGE_ROLL_DEG:.0f}°，冲桥 {self.bridge_climb_seconds:.0f} 秒"
+            )
+
+        # 三个计时全部从 _bridge_engaged_at 起算。用 _bridge_started 会让
+        # “远处看见胶带的那几秒”也算进过桥时间，刚上桥就被判成已过桥。
         held_long_enough = (
-            self._bridge_started is not None
-            and (now - self._bridge_started) >= BRIDGE_MIN_HOLD_SECONDS
+            self._bridge_engaged_at is not None
+            and (now - self._bridge_engaged_at) >= BRIDGE_MIN_HOLD_SECONDS
         )
         near_long_enough = (
             self._bridge_near_since is not None
             and (now - self._bridge_near_since) >= BRIDGE_PASS_SECONDS
         )
         fallback_long_enough = (
-            self._bridge_near_since is None
-            and self._bridge_started is not None
-            and (now - self._bridge_started) >= max(
-                self.bridge_climb_seconds, BRIDGE_PASS_SECONDS + 3.0
-            )
+            self._bridge_engaged_at is not None
+            and (now - self._bridge_engaged_at)
+            >= max(self.bridge_climb_seconds, BRIDGE_PASS_SECONDS + 3.0)
         )
         # 远处先看见胶带时 _bridge_started 会提前开始；真正过桥要以靠近桥面为准。
         # 下桥后侧面胶带常留在画面右侧，hazard_gone 一直不成立，必须靠超时强制离开。
+        # 必须已经 _bridge_engaged（真到桥头并开始上桥）才谈得上"过桥"，
+        # 否则远处看见胶带 3 秒后就被判成过桥，桥还没上去。
         if (
             self._passed_bridge
+            and self._bridge_engaged
             and not self._passed_sidewalk
             and not self._cleared_bridge
             and held_long_enough
@@ -1831,7 +1933,9 @@ class ShiWaiFollower(Node):
     def _bridge_climb_remaining(self, now: float) -> float:
         if (
             self._bridge_started is None
-            or not self._passed_bridge
+            # 冲桥加速也只在「判定到桥头」之后才给，否则远处看见胶带就开始
+            # 加速，7 秒窗口会在到桥之前耗完。
+            or not self._bridge_engaged
             or self._passed_sidewalk
             or self._bridge_climb_ended
         ):
@@ -1848,7 +1952,8 @@ class ShiWaiFollower(Node):
             return self.bridge_climb_speed / max(self.forward_speed, 1e-3)
         if self._on_bridge_section():
             return float(BRIDGE_ON_RAMP_SPEED_SCALE)
-        if self._passed_bridge and not self._passed_sidewalk:
+        # 只有「已经过桥、还没到人行道」才用转弯慢速；还没到桥头时用正常速度。
+        if self._cleared_bridge and not self._passed_sidewalk:
             return float(TURN_SPEED_SCALE)
         return 1.0
 
@@ -2247,6 +2352,9 @@ class ShiWaiFollower(Node):
                     progress += f" pass {pass_left:.1f}s"
             elif self._cleared_bridge:
                 progress += f" off={TURN_OFFSET_CM:+.1f}cm"
+            elif self._bridge_seen_at is not None:
+                waited = time.monotonic() - self._bridge_seen_at
+                progress += f" bridge-ahead {waited:.1f}s (wait tape-gone)"
             climb_left = self._bridge_climb_remaining(time.monotonic())
             if climb_left > 0.0:
                 progress += (
@@ -2396,8 +2504,12 @@ class ShiWaiFollower(Node):
         def mark(flag: bool) -> str:
             return "Y" if flag else "-"
 
+        # bridge 三态：- 没看见 / A 看见了但还没到桥头 / Y 已开始右偏+侧倾
+        bridge_state = (
+            "Y" if self._bridge_engaged else ("A" if self._passed_bridge else "-")
+        )
         progress = (
-            f"bridge={mark(self._passed_bridge)}"
+            f"bridge={bridge_state}"
             f" walk={mark(self._passed_sidewalk)}"
             f" tunnel={mark(self._passed_tunnel)}"
             f" finish={mark(self._passed_finish)}"
