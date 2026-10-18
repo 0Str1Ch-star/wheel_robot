@@ -404,6 +404,7 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
     "/home/orangepi/wheel_robot/src/wheel_robot/scripts/dual_line_follower_illum.py"
     "/home/orangepi/wheel_robot/src/wheel_robot/scripts/icn.py"
     "/home/orangepi/wheel_robot/src/wheel_robot/scripts/shiwai.py"
+    "/home/orangepi/wheel_robot/src/wheel_robot/scripts/shiwai_lane_fixed.py"
     "/home/orangepi/wheel_robot/src/wheel_robot/scripts/lesson17_vision_follower.py"
     "/home/orangepi/wheel_robot/src/wheel_robot/scripts/lesson18_person_patrol.py"
     )

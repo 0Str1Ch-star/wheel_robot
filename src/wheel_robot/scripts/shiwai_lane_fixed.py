@@ -42,6 +42,14 @@ ROLL_RATE_DEG = 30.0
 # 程序启动后这么多秒才允许左横滚，避免一出发就歪。神tm定时器
 BRIDGE_ROLL_DELAY_SECONDS = 4.0
 
+# ---------- 低头（俯仰 joint_pitching） ----------
+# 摄像头看得太远就加大这个角度。全程保持，不随赛道阶段变化。
+# 底盘单位是「度」，限幅 ±35°（wheeled_legged_pkg/src/wl_base_node.cpp: Pitch_limits=35）。
+# 正负号：如果填 +5 反而抬头了，就改成 -5。
+PITCH_DEG = 10.0
+# 低头变化速度（度/秒）。从 0 到 5° 约 0.25 秒。
+PITCH_RATE_DEG = 20.0
+
 # 「到桥头」的主信号：近端胶带消失（hazard_near 由 True 变 False）。
 # 实测 course_20261017_170916.avi（min_hazard_transitions=1.8）：
 #   hazard_near: t=0.7s 起连续 True，到 t≈9.0s 转 False（偶有单帧闪回）
@@ -176,7 +184,7 @@ MIN_CROSSWALK_STRIPES = 5
 
 # ---------- 腿高 / 隧道下蹲 ----------
 # 正常站立腿高（米）。底盘默认约 0.25，允许范围大约 0.14~0.36。
-STAND_HEIGHT = 0.25
+STAND_HEIGHT = 0.25 #0.25
 
 # 过隧道时的下蹲腿高（米）。越小蹲得越明显，不要低于 0.14。
 CROUCH_HEIGHT = 0.16
@@ -1252,6 +1260,7 @@ class ShiWaiFollower(Node):
         self._current_height = self.stand_height
         self._target_height = self.stand_height
         self._current_roll = 0.0
+        self._current_pitch = 0.0
         self._started_at = time.monotonic()
         self._height_time = time.monotonic()
         self._video_writer: Optional[cv2.VideoWriter] = None
@@ -1742,7 +1751,7 @@ class ShiWaiFollower(Node):
         message.position = [
             float(np.clip(height, 0.14, 0.36)),
             float(np.clip(self._current_roll, -15.0, 15.0)),
-            0.0,
+            float(np.clip(self._current_pitch, -35.0, 35.0)),
         ]
         self.posture_pub.publish(message)
 
@@ -1768,6 +1777,12 @@ class ShiWaiFollower(Node):
             self._current_roll,
             self._bridge_roll_target(),
             ROLL_RATE_DEG * dt,
+        )
+        # 低头是全程目标，不随任何赛道阶段变化。
+        self._current_pitch = self._approach(
+            self._current_pitch,
+            float(PITCH_DEG),
+            PITCH_RATE_DEG * dt,
         )
         self._publish_posture(self._current_height)
 
@@ -2074,6 +2089,7 @@ class ShiWaiFollower(Node):
             self._publish_zero("control_exception")
             try:
                 self._current_roll = 0.0
+                self._current_pitch = 0.0
                 self._publish_posture(self.stand_height)
             except Exception:
                 pass
@@ -2425,7 +2441,8 @@ class ShiWaiFollower(Node):
         cv2.putText(
             debug,
             f"err={result.error:+.3f}   v={linear:.2f}   w={angular:+.2f}   "
-            f"h={self._current_height:.2f}   roll={self._current_roll:+.1f}",
+            f"h={self._current_height:.2f}   roll={self._current_roll:+.1f}   "
+            f"pitch={self._current_pitch:+.1f}",
             (12, 52),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.48,
@@ -2650,6 +2667,7 @@ class ShiWaiFollower(Node):
         self._target_height = self.stand_height
         self._current_height = self.stand_height
         self._current_roll = 0.0
+        self._current_pitch = 0.0
         self._publish_posture(self.stand_height)
         self._exit_requested = True
 
@@ -2668,6 +2686,7 @@ class ShiWaiFollower(Node):
             self._capture_thread.join(timeout=1.0)
         if rclpy.ok():
             self._current_roll = 0.0
+            self._current_pitch = 0.0
             for _ in range(10):
                 self._publish(0.0, 0.0)
                 self._publish_posture(self.stand_height)

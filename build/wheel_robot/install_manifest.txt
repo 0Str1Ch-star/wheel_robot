@@ -113,6 +113,7 @@
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/dual_line_follower_illum.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/icn.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/shiwai.py
+/home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/shiwai_lane_fixed.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/lesson17_vision_follower.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/lesson18_person_patrol.py
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/models/mobilenet_iter_73000.caffemodel
@@ -126,6 +127,7 @@
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/libdepthengine.so.2.0
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/liblive555.so
 /home/orangepi/wheel_robot/install/wheel_robot/lib/wheel_robot/libob_usb.so
+/home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/shiwai_lane.launch.py
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/camera_view.launch.py
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/shiwai.launch.py
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/step_approach_test.launch.py
@@ -134,6 +136,7 @@
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/__pycache__/step_jump.launch.cpython-310.pyc
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/__pycache__/dual_line_follow.launch.cpython-310.pyc
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/__pycache__/lesson18_person_patrol.launch.cpython-310.pyc
+/home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/__pycache__/shiwai_lane.launch.cpython-310.pyc
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/__pycache__/lesson17_vision_follower.launch.cpython-310.pyc
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/__pycache__/step_approach_test.launch.cpython-310.pyc
 /home/orangepi/wheel_robot/install/wheel_robot/share/wheel_robot/launch/__pycache__/astra_camera.launch.cpython-310.pyc

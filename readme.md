@@ -197,4 +197,6 @@ yellow_*（保留原值）	场景识别（黄黑胶带 / 人行道 / 终点）	1
    左线在 x=100 时，0.38 → 虚拟中点 343 > 320 → 判成“该右转”，方向反了。
 SINGLE_LEFT_HALF_RATIO = 0.31
 SINGLE_RIGHT_HALF_RATIO = 0.31
-BRIDGE_OFFSET_CM=10,取消了偏置带来的不必要的右边
+BRIDGE_OFFSET_CM=0,取消了偏置带来的不必要的右边
+
+增加了俯仰角10度，但还是很难看到赛道
