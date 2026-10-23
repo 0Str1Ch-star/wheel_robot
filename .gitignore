@@ -9,3 +9,4 @@ install/
 log/
 *.bag
 *.db
+outdoor_check/

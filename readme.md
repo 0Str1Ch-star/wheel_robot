@@ -197,4 +197,45 @@ yellow_*（保留原值）	场景识别（黄黑胶带 / 人行道 / 终点）	1
    左线在 x=100 时，0.38 → 虚拟中点 343 > 320 → 判成“该右转”，方向反了。
 SINGLE_LEFT_HALF_RATIO = 0.31
 SINGLE_RIGHT_HALF_RATIO = 0.31
-BRIDGE_OFFSET_CM=10,取消了偏置带来的不必要的右边
+BRIDGE_OFFSET_CM=0,取消了偏置带来的不必要的右边
+
+增加了俯仰角10度，但还是很难看到赛道
+
+# 修改巡线
+位置	原	现	依据
+SINGLE_LEFT_HALF_RATIO	0.24（154px）	0.30（192px）	实测半宽 190px
+SINGLE_RIGHT_HALF_RATIO	0.24	0.30	同上
+yaml expected_lane_width_ratio	0.49（314px）	0.59（378px）	实测车道宽 379px
+
+勉强完赛18：00/home/orangepi/wheel_robot/recordings/shiwai_20261023_175631.avi
+巡线偏左导致单边桥不稳，后面找单线找半天
+
+# 10.23 晚 巡线分支 + 单边桥三段式
+向下蹲改为2.2
+## 新增文件
+| 文件 | 作用 |
+|---|---|
+| scripts/shiwai_lane_fixed.py | shiwai.py 的改进分支（shiwai.py 本身一字未动） |
+| launch/shiwai_lane.launch.py | 启动上面这个；节点名仍叫 shiwai，否则 yaml 的 shiwai 段不生效 |
+| scripts/shiwai_posture_hold.py | 只发 /cmd_posture 保持低头，不占摄像头、不发车速 |
+| scripts/shiwai_pitch_probe.py | 离线标定 err 偏置，自带 CSV+录像（占摄像头，别和 recorder 同跑） |
+
+CMakeLists.txt 里补了对应的 install(PROGRAMS ...)。
+
+## 单边桥改成三段式（中间插停车，方便看状态判断加速时机）
+到桥头停 1.0s（BRIDGE_STOP_BEFORE_SECONDS）→ 冲桥 0.40m/s×2.0s → 再停 1.2s（BRIDGE_STOP_AFTER_SECONDS）
+想取消停车就把这两个常量改成 0，别的地方不用动。
+
+BRIDGE_LOCK_STRAIGHT=True：冲桥期间 angular 强制 0。
+桥上只看得见一条泡沫，单线推虚拟中点会把车拐下桥（173117 掉桥时 err 已经到 -0.378）。
+
+## 巡线
+STEERING_KP 1.00 → 0.75（原来蛇行 ±20cm）
+新增 TARGET_OFFSET_PIXELS：把车摆直道正中读到的静态 err × 320 填这里
+
+## 转弯段找线（掉桥后找单线）
+TURN_SEARCH_BOTTOM_RATIO = 0.94   泡沫在 y=375~410，原来 ROI 底 0.86 直接裁掉了
+_turn_search_dir   按泡沫在画面哪一侧决定左转还是右转。
+                   原来固定左转，泡沫在右侧时越转越远，永远满足不了 left_edge_x<269
+
+

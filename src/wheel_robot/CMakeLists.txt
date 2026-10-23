@@ -113,6 +113,8 @@ install(PROGRAMS
   scripts/icn.py
   scripts/shiwai.py
   scripts/shiwai_lane_fixed.py
+  scripts/shiwai_posture_hold.py
+  scripts/shiwai_pitch_probe.py
   scripts/lesson17_vision_follower.py
   scripts/lesson18_person_patrol.py
   DESTINATION lib/${PROJECT_NAME}

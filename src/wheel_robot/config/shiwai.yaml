@@ -40,7 +40,7 @@ shiwai:
 
     min_lane_width_ratio: 0.30
     max_lane_width_ratio: 0.82
-    expected_lane_width_ratio: 0.49
+    expected_lane_width_ratio: 0.59
     lane_width_tolerance_ratio: 0.30
     max_center_jump_ratio: 0.04
     min_valid_row_fraction: 0.12

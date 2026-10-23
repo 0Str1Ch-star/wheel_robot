@@ -42,6 +42,14 @@ ROLL_RATE_DEG = 30.0
 # 程序启动后这么多秒才允许左横滚，避免一出发就歪。神tm定时器
 BRIDGE_ROLL_DELAY_SECONDS = 4.0
 
+# ---------- 低头（俯仰 joint_pitching） ----------
+# 摄像头看得太远就加大这个角度。全程保持，不随赛道阶段变化。
+# 底盘单位是「度」，限幅 ±35°（wheeled_legged_pkg/src/wl_base_node.cpp: Pitch_limits=35）。
+# 正负号：如果填 +5 反而抬头了，就改成 -5。
+PITCH_DEG = 10.0
+# 低头变化速度（度/秒）。从 0 到 5° 约 0.25 秒。
+PITCH_RATE_DEG = 20.0
+
 # 「到桥头」的主信号：近端胶带消失（hazard_near 由 True 变 False）。
 # 实测 course_20261017_170916.avi（min_hazard_transitions=1.8）：
 #   hazard_near: t=0.7s 起连续 True，到 t≈9.0s 转 False（偶有单帧闪回）
@@ -63,12 +71,13 @@ BRIDGE_ENGAGE_TIMEOUT_SECONDS = 12.0
 # 左：虚拟中点 = 左内沿 + 半宽。太小贴左，太大贴右。
 # 右：虚拟中点 = 右内沿 − 半宽。太小贴右，太大贴左。
 #
-# 0.38(=243px) 是估出来的，实测偏大：出图见 outdoor_check/mask_compare.png。
-# 起点帧用 h>=18/s>=33 量到真实车道 316px，单边时近处半宽约 150px ≈ 0.24。
-# 半宽偏大的后果是方向反掉：左线在 x=100 时，0.38 算出虚拟中点 343 > 320，
-# 判成“该右转”，而真中点 298 在左边应该左转 → 车一路往右跑。
-SINGLE_LEFT_HALF_RATIO = 0.24
-SINGLE_RIGHT_HALF_RATIO = 0.24
+# ❗ 这个值直接由「相机离地高度 + 俯仰角」决定，改了 STAND_HEIGHT / PITCH_DEG
+#    就必须重新标定，否则车会稳定地偏在一边（看起来像“横着调歪了”）。
+# 实测 shiwai_20261023_172007.avi（h=0.20、pitch=10°）：
+#   左右泡沫内沿量出车道宽中位 379px → 真半宽 190px = 0.30
+#   旧值 0.24(=154px) 少了 36px → 虚拟中点偏左 → 车被稳到真中心左侧约 19cm。
+SINGLE_LEFT_HALF_RATIO = 0.30
+SINGLE_RIGHT_HALF_RATIO = 0.30
 TUNNEL_SINGLE_LEFT_HALF_RATIO = 0.50
 # 隧道里现在只能看到右侧海绵：半宽太小会贴右。还贴右就再加大，例如 0.52、0.55。
 TUNNEL_SINGLE_RIGHT_HALF_RATIO = 0.50
@@ -82,10 +91,14 @@ TURN_OFFSET_CM = 0.0
 
 # 下桥后先停稳，再向左慢转找左侧海绵。正数为左转（w>0）。
 # 停车后必须先左转够时间，不能马上把内圈黄块当成左线锁住。
-TURN_STOP_SECONDS = 0.6
+# 过桥后的停车现在由 BRIDGE_STOP_AFTER_SECONDS 负责，这里置 0 免得停两次。
+TURN_STOP_SECONDS = 0.0
 TURN_MIN_SPIN_SECONDS = 1.6
 TURN_SEARCH_SECONDS = 5.0
 TURN_LOST_GRACE_SECONDS = 9.0
+# 转弯段丢线时的前进速度。原来是 0.0（原地打转），结果一转就是十几秒回不来。
+# 实测 shiwai_20261023_173608.avi：f135 丢线后 50 多帧全在原地转，v 恒为 0，
+# 9 秒宽限一到就彻底停死。给一点前速才能一边转一边把泡沫扫回视野。
 TURN_LOST_SPEED = 0.0
 TURN_LOST_ANGULAR = 0.22
 # 锁左海绵时，其内沿必须在画面左侧。内圈黄块在右边，不能当左线。
@@ -97,12 +110,26 @@ TURN_SPEED_SCALE = 0.55
 # 过完桥允许用更远处的黄线重新锁线（0=搜索框顶，1=框底）。
 TURN_NEAR_LOCK_RATIO = 0.08
 
+# 转弯段专用的 ROI 底部（0=画面顶，1=画面底）。
+# 低头 10° + 腿高 0.20 时相机只看得到脚前一小段，泡沫贴近车时会掉出默认的
+# SEARCH_BOTTOM_RATIO=0.86（y=413）。实测 f126 泡沫已在 y=375~410，下一帧全空。
+# 转弯段放宽到 0.94（y=451），把最近处那一段拉回搜索区。
+TURN_SEARCH_BOTTOM_RATIO = 0.94
+
 # 巡线搜索框（0=画面顶，1=画面底）。
 # 框顶要能看到弯道远处黄线，框底要能看到脚下海绵。
 SEARCH_TOP_RATIO = 0.24
 SEARCH_BOTTOM_RATIO = 0.86
 # 搜索框内：只有靠近车的这一段允许“新锁线”（0=框顶远处，1=框底近处）。
 NEAR_LOCK_RATIO = 0.35
+
+# ---------- 巡线中点的静态偏置（像素）----------
+# 车明明摆在车道正中，屏幕上 err 却不是 0，就用这个把中性点扳回来：
+#     TARGET_OFFSET_PIXELS = 摆正时的 err × 320
+#   例：摆正时 err=+0.13 → 填 +42；err=-0.08 → 填 -26
+# 正值 = 把跟踪中心往右挪（err 变负）→ 车会往左修正；负值相反。
+# 标定方法：车摆直道正中、enable_motion:=false，看屏幕 err，代入上式。
+TARGET_OFFSET_PIXELS = 0.0
 
 # ---------- 黄色赛道边缘 HSV（仅巡线，不改变场景识别） ----------
 # OpenCV 8 位 HSV：H=0~179，S/V=0~255。
@@ -131,22 +158,45 @@ MINIMUM_FORWARD_SPEED = 0.20
 # 最大转向角速度（rad/s）。弯道转不过去就略增大。
 MAX_ANGULAR_SPEED = 0.40
 
+# 转向比例增益：err=1 时输出的角速度 = STEERING_KP × MAX_ANGULAR_SPEED。
+# 偏大 → 左右画龙（实测峰峰 40cm 以上），冲桥会被甩下去；
+# 偏小 → 回正慢、进弯切内圈。画龙降 0.7，抢弯提 0.9。
+STEERING_KP = 0.75
+
 # 转弯减速比例，范围 0~1。越大，转弯时越慢。
 CURVE_SLOWDOWN = 0.60
 
 # 看见单边桥黄黑胶带后冲上桥面的速度（m/s），应比 FORWARD_SPEED 大。
-BRIDGE_CLIMB_SPEED = 0.50
+BRIDGE_CLIMB_SPEED = 0.40
 
-# 冲桥加速时长，从“真正靠近桥面”重新计时，不是从远处看见胶带开始。
-# 只加总时长没用：远处看见就会倒计时，走到桥头刚好加速结束，没动力上桥。
-BRIDGE_CLIMB_SECONDS = 7.0
+# 冲桥加速时长。从「桥头停车结束、真正开始提速」那一刻起算，到点立刻停车，
+# 所以它就是冲桥距离： 冲桥距离 ≈ BRIDGE_CLIMB_SPEED × BRIDGE_CLIMB_SECONDS
+# 例：0.40 × 2.0 = 0.8 m。先保守跑，按两次停车的位置差再调。
+BRIDGE_CLIMB_SECONDS = 2.0
+
+# ---------- 单边桥两处停车（想提速时直接填 0.0 取消）----------
+# 桥头停车：黄色胶带消失、判定到桥头后先原地停这么久，再开始冲桥。
+#   作用：把「到桥头了」变成肉眼可见的位置标记，方便标定加速起点。
+#   填 0.0 = 不停，胶带一消失立刻冲。
+BRIDGE_STOP_BEFORE_SECONDS = 1.0
+# 冲桥结束停车：冲桥计时一到立刻停住，停这么久再去左边找线。
+#   作用：标定「应该停在桥上/桥后多远」，替代猜桥长。
+#   填 0.0 = 不停，冲完直接进找线。
+BRIDGE_STOP_AFTER_SECONDS = 1.2
+
+# 冲桥全程锁直（angular=0，只走直线）。
+# 实测 shiwai_20261023_173117.avi：桥上只剩单边泡沫，单边推断把虚拟中点拉到
+# 一边，err 从 +0.39 跳到 -0.38，跟着打舵就直接从桥左侧掉下去。
+# 桥头已经停稳对齐了，这段 0.8 m 直冲比跟线安全得多。
+# 想恢复“冲桥也跟线”就填 False。
+BRIDGE_LOCK_STRAIGHT = True
 
 # 看见桥之后至少这么多秒才允许判定“桥已离开”，避免胶带闪一下就取消右偏。
 BRIDGE_MIN_HOLD_SECONDS = 2.5
 
 # 靠近桥面后再计时，到点才取消右偏并停车找弯道。加速和右偏分开。
 # 6 秒会带着右偏进弯压内圈；太短会从桥左边掉下去。
-BRIDGE_PASS_SECONDS = 3.2
+BRIDGE_PASS_SECONDS = 2.2  #3.2
 
 # 黄黑胶带进入画面这个高度范围，才算“靠近桥面”（0=画面顶，1=画面底）。
 # 框顶太靠上会过早开始计时，走到桥头加速/右偏已经结束。
@@ -176,7 +226,7 @@ MIN_CROSSWALK_STRIPES = 5
 
 # ---------- 腿高 / 隧道下蹲 ----------
 # 正常站立腿高（米）。底盘默认约 0.25，允许范围大约 0.14~0.36。
-STAND_HEIGHT = 0.25
+STAND_HEIGHT = 0.20 #0.25
 
 # 过隧道时的下蹲腿高（米）。越小蹲得越明显，不要低于 0.14。
 CROUCH_HEIGHT = 0.16
@@ -1228,6 +1278,11 @@ class ShiWaiFollower(Node):
         self._bridge_started: Optional[float] = None
         self._bridge_near_since: Optional[float] = None
         self._bridge_climb_ended = False
+        # 单边桥三段式：桥头停车 → 冲桥 → 冲桥结束停车。
+        # _bridge_climb_started_at 是真正开始提速的时刻（桥头停车结束后才填）。
+        self._bridge_climb_started_at: Optional[float] = None
+        # 停车截止时刻；None 表示当前不在停车阶段。填 0 秒停车时不会置位。
+        self._bridge_hold_until: Optional[float] = None
         # 看见胶带 ≠ 到桥头。_bridge_seen_at 记第一次看见的时刻，
         # _bridge_engaged 才决定要不要右偏+侧倾。
         self._bridge_seen_at: Optional[float] = None
@@ -1240,6 +1295,8 @@ class ShiWaiFollower(Node):
         self._cleared_at: Optional[float] = None
         self._left_line_locked = False
         self._turn_lost_announced = False
+        # 转弯段找线时的旋转方向：+1 左转、-1 右转。按泡沫在画面哪一侧决定。
+        self._turn_search_dir = -1.0
         self._crosswalk_frames = 0
         self._hazard_frames = 0
         self._hazard_near_frames = 0
@@ -1252,6 +1309,7 @@ class ShiWaiFollower(Node):
         self._current_height = self.stand_height
         self._target_height = self.stand_height
         self._current_roll = 0.0
+        self._current_pitch = 0.0
         self._started_at = time.monotonic()
         self._height_time = time.monotonic()
         self._video_writer: Optional[cv2.VideoWriter] = None
@@ -1471,6 +1529,7 @@ class ShiWaiFollower(Node):
         self.forward_speed = float(FORWARD_SPEED)
         self.minimum_forward_speed = float(MINIMUM_FORWARD_SPEED)
         self.max_angular_speed = float(MAX_ANGULAR_SPEED)
+        self.steering_kp = float(STEERING_KP)
         self.curve_slowdown = float(CURVE_SLOWDOWN)
         self.bridge_speed_scale = float(BRIDGE_SPEED_SCALE)
         self.bridge_climb_speed = float(BRIDGE_CLIMB_SPEED)
@@ -1483,7 +1542,7 @@ class ShiWaiFollower(Node):
         self.min_crouch_seconds = float(MIN_CROUCH_SECONDS)
         self.tunnel_pass_seconds = float(TUNNEL_PASS_SECONDS)
         self.max_crouch_seconds = float(MAX_CROUCH_SECONDS)
-        self.target_offset_pixels = 0.0
+        self.target_offset_pixels = float(TARGET_OFFSET_PIXELS)
         self.max_lane_width_ratio = 0.82
         self.search_top_ratio = float(SEARCH_TOP_RATIO)
         self.search_bottom_ratio = float(SEARCH_BOTTOM_RATIO)
@@ -1512,11 +1571,15 @@ class ShiWaiFollower(Node):
         offset = (offset_cm / TRACK_WIDTH_CM) * (
             self.image_width * self.expected_lane_width_ratio
         )
-        self.line_detector.target_offset_pixels = float(offset)
+        # 每帧都会重算，所以静态偏置必须加在这里，不能只写在 _apply_field_tuning。
+        self.line_detector.target_offset_pixels = float(
+            offset + TARGET_OFFSET_PIXELS
+        )
         if self._mode == self.MODE_CROUCH:
             self.line_detector.single_left_half_ratio = TUNNEL_SINGLE_LEFT_HALF_RATIO
             self.line_detector.single_right_half_ratio = TUNNEL_SINGLE_RIGHT_HALF_RATIO
             self.line_detector.near_lock_ratio = self.line_detector.base_near_lock_ratio
+            self.line_detector.search_bottom_ratio = float(SEARCH_BOTTOM_RATIO)
             self.line_detector.min_valid_row_fraction = (
                 self.line_detector.base_min_valid_row_fraction
             )
@@ -1528,6 +1591,8 @@ class ShiWaiFollower(Node):
             self.line_detector.single_left_half_ratio = TURN_SINGLE_LEFT_HALF_RATIO
             self.line_detector.single_right_half_ratio = TURN_SINGLE_RIGHT_HALF_RATIO
             self.line_detector.near_lock_ratio = TURN_NEAR_LOCK_RATIO
+            # 转弯段把 ROI 底部放宽，否则近处泡沫一贴底就整幅消失。
+            self.line_detector.search_bottom_ratio = TURN_SEARCH_BOTTOM_RATIO
             self.line_detector.min_valid_row_fraction = 0.06
             self.line_detector.min_single_coverage = 0.10
             self.line_detector.force_left_line = True
@@ -1535,6 +1600,7 @@ class ShiWaiFollower(Node):
             self.line_detector.single_left_half_ratio = SINGLE_LEFT_HALF_RATIO
             self.line_detector.single_right_half_ratio = SINGLE_RIGHT_HALF_RATIO
             self.line_detector.near_lock_ratio = self.line_detector.base_near_lock_ratio
+            self.line_detector.search_bottom_ratio = float(SEARCH_BOTTOM_RATIO)
             self.line_detector.min_valid_row_fraction = (
                 self.line_detector.base_min_valid_row_fraction
             )
@@ -1742,7 +1808,7 @@ class ShiWaiFollower(Node):
         message.position = [
             float(np.clip(height, 0.14, 0.36)),
             float(np.clip(self._current_roll, -15.0, 15.0)),
-            0.0,
+            float(np.clip(self._current_pitch, -35.0, 35.0)),
         ]
         self.posture_pub.publish(message)
 
@@ -1768,6 +1834,12 @@ class ShiWaiFollower(Node):
             self._current_roll,
             self._bridge_roll_target(),
             ROLL_RATE_DEG * dt,
+        )
+        # 低头是全程目标，不随任何赛道阶段变化。
+        self._current_pitch = self._approach(
+            self._current_pitch,
+            float(PITCH_DEG),
+            PITCH_RATE_DEG * dt,
         )
         self._publish_posture(self._current_height)
 
@@ -1846,17 +1918,12 @@ class ShiWaiFollower(Node):
                 self._bridge_started = now
                 self._bridge_climb_ended = False
                 self._announce(
-                    f"开始加速接近单边桥：{self.bridge_climb_speed:.2f} m/s，"
-                    f"靠近桥面后重新计时 {self.bridge_climb_seconds:.0f} 秒"
+                    "发现单边桥胶带：继续低头巡线，等胶带消失再停车冲桥"
                 )
             if near_confirmed and self._bridge_near_since is None:
                 self._bridge_near_since = now
                 self._bridge_climb_ended = False
-                self._announce(
-                    f"已靠近桥面，重新开始冲桥 {self.bridge_climb_speed:.2f} m/s，"
-                    f"{self.bridge_climb_seconds:.0f} 秒；"
-                    f"{BRIDGE_PASS_SECONDS:.1f} 秒后停车，向左找左侧海绵"
-                )
+                self._announce("胶带已进入近端视野，下一个动作是桥头停车")
 
         # 到了桥头才右偏 + 侧倾。判据优先用「近端胶带消失」，
         # 定时器只做兜底（胶带一直不消失时不能永远不上桥）。
@@ -1903,48 +1970,23 @@ class ShiWaiFollower(Node):
             self._hazard_near_gone_frames = 0
             self._near_gone_at = None
             self._bridge_climb_ended = False
+            # 先停车，把「到桥头了」变成肉眼可见的标记；停完才开始提速。
+            self._bridge_climb_started_at = None
+            self._bridge_hold_until = (
+                now + BRIDGE_STOP_BEFORE_SECONDS
+                if BRIDGE_STOP_BEFORE_SECONDS > 0.0
+                else None
+            )
             self._announce(
                 f"到桥头（胶带消失后 {gone_for:.1f}s / 已等 {seen_for:.1f}s）："
+                f"先停车 {BRIDGE_STOP_BEFORE_SECONDS:.1f} 秒，停完再"
                 f"右偏 {BRIDGE_OFFSET_CM:+.0f} cm、侧倾 "
                 f"{BRIDGE_ROLL_DEG:.0f}°，冲桥 {self.bridge_climb_seconds:.0f} 秒"
             )
 
-        # 三个计时全部从 _bridge_engaged_at 起算。用 _bridge_started 会让
-        # “远处看见胶带的那几秒”也算进过桥时间，刚上桥就被判成已过桥。
-        held_long_enough = (
-            self._bridge_engaged_at is not None
-            and (now - self._bridge_engaged_at) >= BRIDGE_MIN_HOLD_SECONDS
-        )
-        near_long_enough = (
-            self._bridge_near_since is not None
-            and (now - self._bridge_near_since) >= BRIDGE_PASS_SECONDS
-        )
-        fallback_long_enough = (
-            self._bridge_engaged_at is not None
-            and (now - self._bridge_engaged_at)
-            >= max(self.bridge_climb_seconds, BRIDGE_PASS_SECONDS + 3.0)
-        )
-        # 远处先看见胶带时 _bridge_started 会提前开始；真正过桥要以靠近桥面为准。
-        # 下桥后侧面胶带常留在画面右侧，hazard_gone 一直不成立，必须靠超时强制离开。
-        # 必须已经 _bridge_engaged（真到桥头并开始上桥）才谈得上"过桥"，
-        # 否则远处看见胶带 3 秒后就被判成过桥，桥还没上去。
-        if (
-            self._passed_bridge
-            and self._bridge_engaged
-            and not self._passed_sidewalk
-            and not self._cleared_bridge
-            and held_long_enough
-            and (hazard_gone or near_long_enough or fallback_long_enough)
-        ):
-            self._cleared_bridge = True
-            self._cleared_at = now
-            self._left_line_locked = False
-            self._have_error = False
-            self._mark_bridge_climb_ended("已过单边桥，停止冲桥加速")
-            self._announce(
-                f"已过单边桥：先停车 {TURN_STOP_SECONDS:.1f} 秒，"
-                f"再向左慢转找左侧海绵，顺着左线过大弯"
-            )
+        # 过桥判定改由 _check_bridge_climb_end() 的三段式负责：
+        #   桥头停车 → 冲桥计时 → 冲桥结束停车 → _cleared_bridge。
+        # 不再用「胶带消失 / 固定秒数 / 超时」这些互相打架的信号。
 
         if crosswalk_confirmed and not self._passed_sidewalk:
             self._mode = self.MODE_STOP
@@ -2030,27 +2072,83 @@ class ShiWaiFollower(Node):
         self._announce(text)
 
     def _check_bridge_climb_end(self, now: float) -> None:
-        if (
-            self._bridge_started is None
-            or self._bridge_climb_ended
-            or self._passed_sidewalk
-        ):
+        """推进单边桥三段式：桥头停车 → 冲桥 → 冲桥结束停车。
+
+        两处停车分别由 BRIDGE_STOP_BEFORE_SECONDS / BRIDGE_STOP_AFTER_SECONDS
+        控制，任一填 0.0 就等于取消那处停车（以后想提速直接改 0）。
+        """
+        if self._passed_sidewalk or not self._bridge_engaged:
             return
+
+        # ① 桥头停车结束（或本来就没停）→ 真正开始提速
+        if self._bridge_climb_started_at is None:
+            if self._bridge_hold_until is None or now >= self._bridge_hold_until:
+                self._bridge_climb_started_at = now
+                self._bridge_hold_until = None
+                self._announce(
+                    f"桥头停车结束，开始冲桥：{self.bridge_climb_speed:.2f} m/s × "
+                    f"{self.bridge_climb_seconds:.1f} 秒，到点立刻停车"
+                )
+            return
+
+        if self._bridge_climb_ended:
+            return
+
+        # ② 冲桥计时结束 → 停加速、判定过桥、进入冲桥结束停车
         if self._bridge_climb_remaining(now) <= 0.0:
-            self._mark_bridge_climb_ended("单边桥加速结束，恢复正常巡线速度")
+            self._mark_bridge_climb_ended("冲桥计时结束，停止加速")
+            self._cleared_bridge = True
+            self._cleared_at = now
+            self._left_line_locked = False
+            self._have_error = False
+            self._bridge_hold_until = (
+                now + BRIDGE_STOP_AFTER_SECONDS
+                if BRIDGE_STOP_AFTER_SECONDS > 0.0
+                else None
+            )
+            self._announce(
+                f"冲桥结束（约 "
+                f"{self.bridge_climb_speed * self.bridge_climb_seconds:.1f} m），"
+                f"立刻停车 {BRIDGE_STOP_AFTER_SECONDS:.1f} 秒，然后向左找线"
+            )
+
+    def _bridge_hold_active(self, now: float) -> bool:
+        """桥头停车 / 冲桥结束停车是否正在进行。"""
+        return (
+            self._bridge_hold_until is not None
+            and now < self._bridge_hold_until
+            and self._bridge_engaged
+            and not self._passed_sidewalk
+        )
+
+    def _hold_bridge_stop(self, result: DetectionResult, now: float) -> None:
+        """原地停住，画面照常刷新，方便用眼睛标定加速起点 / 终点。"""
+        if self.enable_motion:
+            command = self._rate_limit(0.0, 0.0, now)
+            self._publish(*command)
+            self._last_command = command
+            self._last_command_valid = True
+        else:
+            command = (0.0, 0.0)
+            self._publish_zero("bridge_stop")
+        self._update_height(now)
+        left = 0.0
+        if self._bridge_hold_until is not None:
+            left = max(0.0, self._bridge_hold_until - now)
+        # 进度行里已经会显示 bridge-stop-before/after + 剩余秒数，这里不再重复。
+        self._show(result, *command, False)
+        self._log(now, f"桥头/冲桥停车 还剩 {left:.1f}s")
 
     def _bridge_climb_remaining(self, now: float) -> float:
         if (
-            self._bridge_started is None
-            # 冲桥加速也只在「判定到桥头」之后才给，否则远处看见胶带就开始
-            # 加速，7 秒窗口会在到桥之前耗完。
+            self._bridge_climb_started_at is None
             or not self._bridge_engaged
             or self._passed_sidewalk
             or self._bridge_climb_ended
         ):
             return 0.0
-        # 从靠近桥面重新计时。取消右偏不会清掉这段加速。
-        origin = self._bridge_near_since or self._bridge_started
+        # 从「桥头停车结束、真正开始提速」那一刻起算。
+        origin = self._bridge_climb_started_at
         return max(0.0, self.bridge_climb_seconds - (now - origin))
 
     def _speed_scale(self, now: float) -> float:
@@ -2074,6 +2172,7 @@ class ShiWaiFollower(Node):
             self._publish_zero("control_exception")
             try:
                 self._current_roll = 0.0
+                self._current_pitch = 0.0
                 self._publish_posture(self.stand_height)
             except Exception:
                 pass
@@ -2127,6 +2226,9 @@ class ShiWaiFollower(Node):
         if self._mode == self.MODE_FINISH:
             self._hold_finish_stop(result, now)
             return
+        if self._bridge_hold_active(now):
+            self._hold_bridge_stop(result, now)
+            return
 
         if self._should_search_after_bridge(result, now):
             self._handle_lost_line(result, now, searching=True)
@@ -2170,6 +2272,10 @@ class ShiWaiFollower(Node):
         turn_ratio = min(1.0, abs(angular) / self.max_angular_speed)
         scale = self._speed_scale(now)
         climbing = self._bridge_climb_remaining(now) > 0.0
+        if climbing and BRIDGE_LOCK_STRAIGHT:
+            # 桥区常常只剩单边泡沫，单边推断会把虚拟中点拉偏；冲桥一律锁直。
+            angular = 0.0
+            turn_ratio = 0.0
         slowdown = 0.0 if climbing else self.curve_slowdown
         linear = max(
             self.minimum_forward_speed * scale,
@@ -2345,11 +2451,25 @@ class ShiWaiFollower(Node):
                         self._turn_lost_announced = True
                         self._announce("过完桥先停车，接着向左慢转找左侧海绵")
                 else:
-                    target = (TURN_LOST_SPEED, TURN_LOST_ANGULAR)
+                    # 往泡沫所在的一侧转，才能把它拉回画面中间。
+                    # 实测 shiwai_20261023_174832.avi：err 卡在 +0.97，
+                    # 用 force_left_line 反推泡沫内沿在 x≈489（画面右侧），
+                    # 却一直向左转 6.7 秒；左转会让场景整体右移，泡沫越转越靠右，
+                    # 永远满足不了 left_edge_x < 269，于是永远锁不上。
+                    if result.left_edge_x > 0.5 * self.image_width:
+                        self._turn_search_dir = -1.0
+                    elif 8.0 < result.left_edge_x < 0.5 * self.image_width:
+                        self._turn_search_dir = 1.0
+                    # 完全没看到左缘时沿用上一次的方向，不要来回抖。
+                    target = (
+                        TURN_LOST_SPEED,
+                        self._turn_search_dir * TURN_LOST_ANGULAR,
+                    )
+                    side = "L" if self._turn_search_dir > 0.0 else "R"
                     extra = (
-                        f"TURN SEARCH L {elapsed:.1f}s"
+                        f"TURN SEARCH {side} {elapsed:.1f}s"
                         if searching
-                        else f"TURN LOST L {lost_for:.1f}s"
+                        else f"TURN LOST {side} {lost_for:.1f}s"
                     )
                     if not self._turn_lost_announced:
                         self._turn_lost_announced = True
@@ -2389,7 +2509,9 @@ class ShiWaiFollower(Node):
         scene: Optional[SceneObservation] = None,
         extra: str = "",
     ) -> None:
-        if self._mode == self.MODE_STOP:
+        if self._bridge_hold_active(time.monotonic()):
+            state, color, _label = "BRIDGE STOP", (0, 220, 255), "cmd"
+        elif self._mode == self.MODE_STOP:
             state, color, _label = "SIDEWALK STOP", (220, 220, 220), "cmd"
         elif self._mode == self.MODE_FINISH:
             driving_in = (
@@ -2425,7 +2547,8 @@ class ShiWaiFollower(Node):
         cv2.putText(
             debug,
             f"err={result.error:+.3f}   v={linear:.2f}   w={angular:+.2f}   "
-            f"h={self._current_height:.2f}   roll={self._current_roll:+.1f}",
+            f"h={self._current_height:.2f}   roll={self._current_roll:+.1f}   "
+            f"pitch={self._current_pitch:+.1f}",
             (12, 52),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.48,
@@ -2450,29 +2573,25 @@ class ShiWaiFollower(Node):
             if wait_left > 0.0:
                 progress += f" fn-wait {wait_left:.1f}s"
         if self._passed_bridge and not self._passed_sidewalk:
-            if self._on_bridge_section():
-                progress += f" off={BRIDGE_OFFSET_CM:.1f}cm roll={BRIDGE_ROLL_DEG:.0f}deg"
-                if self._bridge_near_since is not None:
-                    pass_left = max(
-                        0.0,
-                        BRIDGE_PASS_SECONDS
-                        - (time.monotonic() - self._bridge_near_since),
-                    )
-                    progress += f" pass {pass_left:.1f}s"
+            now_mono = time.monotonic()
+            if self._bridge_hold_until is not None:
+                hold_left = max(0.0, self._bridge_hold_until - now_mono)
+                stage = (
+                    "bridge-stop-before"
+                    if self._bridge_climb_started_at is None
+                    else "bridge-stop-after"
+                )
+                progress += f" {stage} {hold_left:.1f}s"
             elif self._cleared_bridge:
-                progress += f" off={TURN_OFFSET_CM:+.1f}cm"
-            elif self._bridge_seen_at is not None:
-                waited = time.monotonic() - self._bridge_seen_at
-                progress += f" bridge-ahead {waited:.1f}s (wait tape-gone)"
-            climb_left = self._bridge_climb_remaining(time.monotonic())
-            if climb_left > 0.0:
+                progress += f" off={TURN_OFFSET_CM:+.1f}cm bridge done"
+            elif self._bridge_climb_started_at is not None:
+                climb_left = self._bridge_climb_remaining(now_mono)
                 progress += (
                     f" climb {climb_left:.1f}s v={self.bridge_climb_speed:.2f}"
                 )
-            elif self._cleared_bridge:
-                progress += " bridge done"
-            elif self._bridge_started is not None:
-                progress += " hold"
+            elif self._bridge_seen_at is not None:
+                waited = now_mono - self._bridge_seen_at
+                progress += f" bridge-ahead {waited:.1f}s (wait tape-gone)"
             else:
                 progress += " approach"
         if extra:
@@ -2650,6 +2769,7 @@ class ShiWaiFollower(Node):
         self._target_height = self.stand_height
         self._current_height = self.stand_height
         self._current_roll = 0.0
+        self._current_pitch = 0.0
         self._publish_posture(self.stand_height)
         self._exit_requested = True
 
@@ -2668,6 +2788,7 @@ class ShiWaiFollower(Node):
             self._capture_thread.join(timeout=1.0)
         if rclpy.ok():
             self._current_roll = 0.0
+            self._current_pitch = 0.0
             for _ in range(10):
                 self._publish(0.0, 0.0)
                 self._publish_posture(self.stand_height)
