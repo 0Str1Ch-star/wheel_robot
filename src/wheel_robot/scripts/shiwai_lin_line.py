@@ -84,13 +84,16 @@ TURN_OFFSET_CM = 0.0
 # IMU/odom 确认离桥后有线直接跟随；丢线才搜索，不安排额外停车。
 TURN_STOP_SECONDS = 0.0
 TURN_MIN_SPIN_SECONDS = 0.0  # 兼容旧配置；不再强制旋转一段时间。
-TURN_SEARCH_SECONDS = 5.0
+TURN_SEARCH_SECONDS = 5.0  # 首次没有可用边线时，最多旋转搜索五秒。
 TURN_LOST_GRACE_SECONDS = 9.0
 # 桥后丢线搜索目标：前进速度降为零，按原有策略低速旋转找线。
 TURN_LOST_SPEED = 0.0
 TURN_LOST_ANGULAR = 0.22
 # 锁左海绵时，其内沿必须在画面左侧。内圈黄块在右边，不能当左线。
 TURN_LEFT_MAX_X_RATIO = 0.42
+TURN_FALLBACK_MIN_CONFIDENCE = 0.70
+TURN_FALLBACK_MIN_ROWS = 30
+TURN_FALLBACK_MAX_ERROR = 0.95  # 饱和中心不作为可靠循迹依据。
 
 # 桥后慢速模式的比例；稳定直线恢复 FORWARD_SPEED，不再整段固定乘 0.55。
 TURN_SPEED_SCALE = 0.55
@@ -175,14 +178,26 @@ BRIDGE_SENSOR_TIMEOUT = 0.50
 BRIDGE_SENSOR_START_GRACE = 2.0
 BRIDGE_ENTER_ROLL_DEG = 4.0    # 相对进入桥区前基准；不用偏航或单次冲击触发。
 BRIDGE_ENTER_CONFIRM_SECONDS = 0.15
-BRIDGE_EXIT_ROLL_DEG = 2.0
-BRIDGE_EXIT_PITCH_DEG = 4.0
+# 离桥采用单向低速确认，避免 exit_wait/crossing 反复切换继续冲桥。
+# 这些角度均相对桥前基准；速度/距离需要实车低速验证，轮式里程不是地面真值。
+BRIDGE_EXIT_START_ROLL_DEG = 3.0
+BRIDGE_EXIT_RETURN_RATIO = 0.55  # 至少从峰值回落约一半才开始减速。
+BRIDGE_EXIT_ROLL_DEG = 3.0
+BRIDGE_EXIT_PITCH_DEG = 5.0
 BRIDGE_RETURN_DELTA_DEG = 2.0
-BRIDGE_FLAT_RATE_DEG = 10.0
-BRIDGE_EXIT_STABLE_SECONDS = 0.60
+BRIDGE_EXIT_ROLL_RATE_DEG = 15.0
+BRIDGE_EXIT_PITCH_RATE_DEG = 20.0
+BRIDGE_EXIT_STABLE_SECONDS = 0.30  # 有效新 IMU 样本的累计平稳时间。
+BRIDGE_EXIT_SPEED = 0.16          # m/s，离桥确认不再请求冲桥速度。
+BRIDGE_EXIT_TIMEOUT = 1.20        # 前进确认预算；用完先停车回平，不直接判故障。
+BRIDGE_EXIT_MAX_DISTANCE = 0.25   # 轮式里程仅限制继续直冲，不单独判定故障。
+BRIDGE_EXIT_SETTLE_TIMEOUT = 3.0  # 停车确认仍不回平才报故障；不强判离桥。
+BRIDGE_EXIT_RETILT_ROLL_DEG = 6.0
+BRIDGE_EXIT_RETILT_PITCH_DEG = 12.0
+BRIDGE_EXIT_RETILT_SECONDS = 0.15
 BRIDGE_MIN_CROSS_SECONDS = 0.80
 BRIDGE_MIN_DISTANCE = 0.35     # 仅附加约束：轮式里程会受打滑影响。
-BRIDGE_EXIT_CLEARANCE = 0.12   # 回平后继续前进的轮式里程余量（米）。
+BRIDGE_EXIT_CLEARANCE = 0.04   # 回平后的小段离桥余量；仍须满足总跨桥距离。
 BRIDGE_PROGRESS_SPEED = 0.04
 BRIDGE_APPROACH_TIMEOUT = 15.0
 BRIDGE_CROSS_TIMEOUT = 12.0    # 超时是异常停车，绝不设置“已过桥”。
@@ -1283,6 +1298,11 @@ class BridgeTraversal:
         self.peak_roll = 0.0
         self.flat_since = None
         self.flat_distance = 0.0
+        self.exit_good_seconds = 0.0
+        self.exit_sample_at = None
+        self.exit_last_good = False
+        self.exit_retilt_since = None
+        self.exit_hold_since = None
         self.last_progress_at = None
         self.progress_distance = 0.0
 
@@ -1292,11 +1312,11 @@ class BridgeTraversal:
 
     @property
     def crossing(self):
-        return self.state in ("crossing", "exit_wait")
+        return self.state in ("crossing", "exit_slow", "exit_hold")
 
     @property
     def boost(self):
-        return self.crossing or (
+        return self.state == "crossing" or (
             self.state == "approach" and self.near and self.baseline is not None
         )
 
@@ -1353,7 +1373,7 @@ class BridgeTraversal:
             return
         if not self.fresh(now) or self.baseline is None:
             self.tilt_since = self.flat_since = None
-            if self.boost or now-self.armed_at > BRIDGE_SENSOR_START_GRACE:
+            if self.crossing or self.boost or now-self.armed_at > BRIDGE_SENSOR_START_GRACE:
                 self.fail("IMU/odom stale or level baseline unavailable")
             return
         dr = abs(self.angle_delta(self.roll, self.baseline[0]))
@@ -1378,29 +1398,69 @@ class BridgeTraversal:
         self.peak_roll = max(self.peak_roll, dr)
         if self.distance-self.progress_distance >= 0.02:
             self.progress_distance, self.last_progress_at = self.distance, now
-        if now-self.last_progress_at > BRIDGE_STALL_TIMEOUT:
+        if self.state == "crossing" and now-self.last_progress_at > BRIDGE_STALL_TIMEOUT:
             self.fail("no odometry progress on bridge")
             return
-        if now-self.entered_at > BRIDGE_CROSS_TIMEOUT:
+        if self.state == "crossing" and now-self.entered_at > BRIDGE_CROSS_TIMEOUT:
             self.fail("bridge exit not confirmed before timeout")
             return
-        flat = (
-            dr <= BRIDGE_EXIT_ROLL_DEG and dp <= BRIDGE_EXIT_PITCH_DEG
-            and self.peak_roll-dr >= BRIDGE_RETURN_DELTA_DEG
-            and max(abs(self.roll_rate), abs(self.pitch_rate)) <= BRIDGE_FLAT_RATE_DEG
-            and self.speed >= BRIDGE_PROGRESS_SPEED
-            and self.distance-self.entered_distance >= BRIDGE_MIN_DISTANCE
-            and now-self.entered_at >= BRIDGE_MIN_CROSS_SECONDS
-        )
-        if not flat:
-            self.state, self.flat_since = "crossing", None
-            return
-        if self.flat_since is None:
-            self.state, self.flat_since = "exit_wait", self.imu_at
+        if self.state == "crossing":
+            returned = (
+                dr <= BRIDGE_EXIT_START_ROLL_DEG
+                and dr <= self.peak_roll * BRIDGE_EXIT_RETURN_RATIO
+                and self.peak_roll-dr >= BRIDGE_RETURN_DELTA_DEG
+                and self.speed >= BRIDGE_PROGRESS_SPEED
+                and self.distance-self.entered_distance >= BRIDGE_MIN_DISTANCE
+                and now-self.entered_at >= BRIDGE_MIN_CROSS_SECONDS
+            )
+            if not returned:
+                return
+            # 先降速再确认，不等待角速度、俯仰同时安静才松开冲桥速度。
+            # 锁定此阶段；后续只能 done/fault，不能重新进入 crossing。
+            self.state, self.flat_since = "exit_slow", now
             self.flat_distance = self.distance
-        if (self.imu_at-self.flat_since >= BRIDGE_EXIT_STABLE_SECONDS
+            self.exit_sample_at = self.imu_at
+            self.exit_good_seconds = 0.0
+            self.exit_last_good = False
+            self.exit_retilt_since = None
+
+        good = (
+            dr <= BRIDGE_EXIT_ROLL_DEG and dp <= BRIDGE_EXIT_PITCH_DEG
+            and abs(self.roll_rate) <= BRIDGE_EXIT_ROLL_RATE_DEG
+            and abs(self.pitch_rate) <= BRIDGE_EXIT_PITCH_RATE_DEG
+        )
+        # 同一帧 IMU 被控制循环重复读取，不累计稳定时间。
+        dt = self.imu_at-self.exit_sample_at
+        if dt > 0.0:
+            if good and self.exit_last_good and dt <= 0.20:
+                self.exit_good_seconds += dt
+            # 短暂坏样本暂停累计，不清空整个离桥阶段，也不恢复冲桥。
+            self.exit_last_good = good
+            self.exit_sample_at = self.imu_at
+        retilted = (dr >= BRIDGE_EXIT_RETILT_ROLL_DEG
+                    or dp >= BRIDGE_EXIT_RETILT_PITCH_DEG)
+        if retilted:
+            if self.exit_retilt_since is None:
+                self.exit_retilt_since = self.imu_at
+            if self.imu_at-self.exit_retilt_since >= BRIDGE_EXIT_RETILT_SECONDS:
+                self.fail("body tilted again during slow exit; bridge not cleared")
+                return
+        else:
+            self.exit_retilt_since = None
+        if (good and self.exit_good_seconds >= BRIDGE_EXIT_STABLE_SECONDS
                 and self.distance-self.flat_distance >= BRIDGE_EXIT_CLEARANCE):
             self.state = "done"
+            return
+        # 先给本帧有效回平证据完成确认的机会，再限制继续前进。
+        # 下桥轮速瞬变会使里程预算很快耗尽，这不是永久故障的充分证据。
+        if self.state == "exit_slow" and (
+                now-self.flat_since >= BRIDGE_EXIT_TIMEOUT
+                or self.distance-self.flat_distance >= BRIDGE_EXIT_MAX_DISTANCE):
+            self.state, self.exit_hold_since = "exit_hold", now
+            self.reason = "exit travel budget reached; stopping to confirm level"
+        if (self.state == "exit_hold"
+                and now-self.exit_hold_since >= BRIDGE_EXIT_SETTLE_TIMEOUT):
+            self.fail("body level/clearance still unconfirmed after exit hold")
 
 
 class ShiWaiFollower(Node):
@@ -1476,6 +1536,8 @@ class ShiWaiFollower(Node):
         self._cleared_at: Optional[float] = None
         self._left_line_locked = False
         self._turn_lost_announced = False
+        self._turn_search_timed_out = False
+        self._turn_fallback_active = False
         # 转弯段找线时的旋转方向：+1 左转、-1 右转。按泡沫在画面哪一侧决定。
         self._turn_search_dir = -1.0
         self._crosswalk_frames = 0
@@ -1560,7 +1622,7 @@ class ShiWaiFollower(Node):
         self._timer = self.create_timer(1.0 / self.control_rate, self._control_timer)
         mode = "运动已启用" if self.enable_motion else "只看画面不发车"
         self._announce(
-            f"shiwai_lin_line.py IMU-bridge + adaptive-speed 版启动，{mode}。过桥状态：approach/crossing/exit_wait/done/fault"
+            f"shiwai_lin_line.py adaptive-speed + exit-recovery 版启动，{mode}。过桥状态：approach/crossing/exit_slow/exit_hold/done/fault"
         )
         self._announce(
             f"当前速度 {self.forward_speed:.2f} m/s，"
@@ -2217,8 +2279,9 @@ class ShiWaiFollower(Node):
             messages = {
                 "approach": "视觉预告单边桥：连续巡线接近，近端提速，等待横滚确认",
                 "crossing": "IMU 确认桥上倾斜：连续通过，等待回平，不按两秒结束",
-                "exit_wait": "姿态已回到基准附近：继续前进，确认稳定与离桥余量",
-                "done": "姿态与里程共同确认离桥：不停顿切回桥后循迹",
+                "exit_slow": "检测到回平趋势：锁定低速离桥确认，不再恢复冲桥；确认后交回弯道循迹",
+                "exit_hold": "离桥前进预算已用完：停止直行并继续回平确认，成功后自动恢复循迹",
+                "done": "姿态与里程共同确认离桥：交回桥后循迹",
                 "fault": f"过桥异常停车（未判定过桥）：{b.reason}；需检查后重新启动节点",
             }
             if b.state in messages:
@@ -2234,18 +2297,27 @@ class ShiWaiFollower(Node):
     def _bridge_command(self, result: DetectionResult, now: float) -> None:
         """桥上保持航向；只让可靠双边线提供小幅视觉修正。"""
         b = self._bridge
+        if b.state == "exit_hold":
+            # 停车期间仍由 _sync_bridge 检查新 IMU；不是永久 fault。
+            # 此时不累计桥上丢线故障，确认离桥后再交给有时限的找线分支。
+            self._publish_zero("bridge_exit_hold")
+            self._update_height(now)
+            self._show(result, 0.0, 0.0, False, extra="EXIT HOLD / LEVEL CHECK")
+            return
         if result.valid:
             self._lost_since = None
         elif self._lost_since is None:
             self._lost_since = now
         lost_for = 0.0 if self._lost_since is None else now-self._lost_since
-        if lost_for >= BRIDGE_LOST_LINE_TIMEOUT:
+        if b.state == "crossing" and lost_for >= BRIDGE_LOST_LINE_TIMEOUT:
             b.fail("bridge lane lost too long")
             self._sync_bridge(now)
             self._publish_zero("bridge_lane_lost")
             self._show(result, 0.0, 0.0, False, extra="BRIDGE FAULT")
             return
         linear = self.bridge_climb_speed
+        if b.state == "exit_slow":
+            linear = min(linear, BRIDGE_EXIT_SPEED)
         if lost_for > BRIDGE_LOST_LINE_HOLD:
             linear = min(linear, BRIDGE_LOST_LINE_SPEED)
         yaw_error = math.radians(b.angle_delta(b.heading, b.yaw))
@@ -2324,7 +2396,7 @@ class ShiWaiFollower(Node):
         self._last_sequence = sequence
 
         self._update_bridge_target()
-        result = self.line_detector.detect(frame)
+        result = self._detect_lane(frame)
         scene = self.scene_detector.detect(
             frame, result.debug_frame, prefer_finish=self._passed_tunnel
         )
@@ -2537,20 +2609,67 @@ class ShiWaiFollower(Node):
         max_x = TURN_LEFT_MAX_X_RATIO * float(self.image_width)
         return 8.0 < result.left_edge_x < max_x
 
+    def _usable_turn_line(self, result: DetectionResult) -> bool:
+        """允许可靠左线、双线或单侧后备线；不是看到任意黄色就前进。"""
+        return (
+            result.valid and math.isfinite(result.error)
+            and math.isfinite(result.confidence)
+            and result.confidence >= TURN_FALLBACK_MIN_CONFIDENCE
+            and max(result.left_line_rows, result.right_line_rows) >= TURN_FALLBACK_MIN_ROWS
+            and abs(result.error) < TURN_FALLBACK_MAX_ERROR
+            and result.reason in ("left_line", "tracking", "single_line")
+        )
+
+    def _detect_lane(self, frame: np.ndarray) -> DetectionResult:
+        if not self._in_right_turn():
+            self._turn_fallback_active = False
+            return self.line_detector.detect(frame)
+        def detect_normal():
+            saved = self.line_detector.force_left_line
+            self.line_detector.force_left_line = False
+            try:
+                return self.line_detector.detect(frame)
+            finally:
+                self.line_detector.force_left_line = saved
+        fallback = None
+        if self._turn_fallback_active:
+            fallback = detect_normal()
+            if self._usable_turn_line(fallback):
+                # 持续只见右线时每帧只算一次；左线重新可用，下一帧切回左线优先。
+                if self._has_left_foam(fallback):
+                    self._turn_fallback_active = False
+                return fallback
+        result = self.line_detector.detect(frame)
+        if self._has_left_foam(result) and self._usable_turn_line(result):
+            self._turn_fallback_active = False
+            return result
+        # 强制左线会把唯一右线也命名为左线，再被位置门限挡住。
+        # 左线不可用时才用原双线/左右单线算法，避免仍有边线却原地扫线。
+        if self.line_detector.force_left_line:
+            result = fallback if fallback is not None else detect_normal()
+        self._turn_fallback_active = True
+        if not self._usable_turn_line(result):
+            result.valid = False
+        return result
+
     def _should_search_after_bridge(
         self, result: DetectionResult, now: float
     ) -> bool:
-        """确认离桥后，有线直接跟随，无线才搜索。"""
+        """确认离桥后有可用线就跟随；不要求必须先锁到左线。"""
         if not self._in_right_turn() or self._cleared_at is None:
             return False
-        if self._left_line_locked:
+        if self._usable_turn_line(result):
+            if self._has_left_foam(result) and not self._left_line_locked:
+                self._left_line_locked = True
+                self._announce("已锁到左侧海绵，接续桥后循迹")
+            if self._turn_search_timed_out:
+                self._announce("扫线停车后重新发现可用边线：恢复低速循迹")
+            self._turn_search_timed_out = False
+            self._turn_lost_announced = False
             return False
-        # 已由 IMU + 里程确认离桥；能看到合格左线就直接接续，不强制原地转。
-        if self._has_left_foam(result):
-            self._left_line_locked = True
-            self._announce("已锁到左侧海绵，连续切换桥后循迹")
-            return False
-        return True
+        # 不允许 valid=True 的低质量/饱和误差绕过后面的丢线处理。
+        result.valid = False
+        return not self._left_line_locked
 
     def _handle_lost_line(
         self,
@@ -2604,7 +2723,8 @@ class ShiWaiFollower(Node):
             grace = POST_TUNNEL_LOST_GRACE_SECONDS
         else:
             grace = self.lost_line_grace_seconds
-        if self.enable_motion and (searching or lost_for < grace):
+        search_limit = TURN_SEARCH_SECONDS if searching else grace
+        if self.enable_motion and lost_for < search_limit:
             if turning or searching:
                 elapsed = (
                     0.0
@@ -2640,7 +2760,7 @@ class ShiWaiFollower(Node):
                     )
                     if not self._turn_lost_announced:
                         self._turn_lost_announced = True
-                        self._announce("过完桥向左慢转，寻找左侧海绵，不往前冲")
+                        self._announce("桥后没有可用边线：按边线位置选择方向，限时原地找线")
                 command = self._rate_limit(*target, now)
                 self._publish(*command)
                 self._last_command = command
@@ -2658,6 +2778,13 @@ class ShiWaiFollower(Node):
             self._publish_zero(result.reason)
             command = (0.0, 0.0)
             reason = result.reason
+            if turning and self.enable_motion and lost_for >= search_limit:
+                extra = f"SEARCH TIMEOUT {lost_for:.1f}s / WAIT LINE"
+                if not self._turn_search_timed_out:
+                    self._turn_search_timed_out = True
+                    self._announce(
+                        f"扫线超过 {search_limit:.1f} 秒，停止旋转；继续识别，出现可用边线后自动恢复"
+                    )
         self._update_height(now)
         self._show(
             result,
@@ -2910,6 +3037,11 @@ class ShiWaiFollower(Node):
             f" | h={self._current_height:.2f}"
             f" | imu_roll={self._bridge.roll:+.1f} pitch={self._bridge.pitch:+.1f}"
             f" base={self._bridge.baseline} odom_v={self._bridge.speed:.2f}"
+            f" exit_good={self._bridge.exit_good_seconds:.2f}s"
+            f" exit_hold={(now-self._bridge.exit_hold_since) if self._bridge.exit_hold_since is not None else 0.0:.2f}s"
+            f" search_timeout={self._turn_search_timed_out}"
+            f" exit_age={(now-self._bridge.flat_since) if self._bridge.flat_since is not None else 0.0:.2f}s"
+            f" exit_dist={(self._bridge.distance-self._bridge.flat_distance) if self._bridge.flat_since is not None else 0.0:.2f}m"
             f" | post_speed={self._post_bridge_speed_mode} goal={self._post_bridge_speed_target:.2f}"
         )
 
