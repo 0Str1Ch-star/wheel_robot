@@ -116,12 +116,27 @@ TURN_NEAR_LOCK_RATIO = 0.08
 # 转弯段放宽到 0.94（y=451），把最近处那一段拉回搜索区。
 TURN_SEARCH_BOTTOM_RATIO = 0.94
 
-# 巡线搜索框（0=画面顶，1=画面底）。
+# ---------- 巡线搜索框（0=画面顶，1=画面底）。 ----------
 # 框顶要能看到弯道远处黄线，框底要能看到脚下海绵。
 SEARCH_TOP_RATIO = 0.24
 SEARCH_BOTTOM_RATIO = 0.86
 # 搜索框内：只有靠近车的这一段允许“新锁线”（0=框顶远处，1=框底近处）。
 NEAR_LOCK_RATIO = 0.35
+
+# ---------- 最长白列边缘提取（参考智能车常用算法） ----------
+# 做法：先统计每列从画面底部向上的连续白点数，取“最左最长列”和“最右最长列”
+# 作为左/右两条线的种子，再自底向上逐行从种子列向外找白→黑跳变得到边界。
+# 丢失的行用已检出行的最小二乘直线外推（远端 → 近端），避免 error 处的
+# 边线不明显时中心跳变。仅在「还没过单边桥」阶段启用。
+COLUMN_FIT_MIN_POINTS = 8      # 至少要这么多行才拟合
+COLUMN_FIT_MAX_ROWS = 140      # 离最近已检出行超过这么多行就不再外推
+COLUMN_FIT_MAX_SLOPE = 1.5     # px/row，防止远端外推飞掉
+
+# 最长白列 + 拟合延伸只在「非冲桥」阶段启用：
+#   进桥前巡线 ✓   冲桥(crossing/exit_slow/exit_hold) ✗ 保持原有算法
+#   下桥后大弯 ✓
+# 冲桥那一段一行都不能动，关掉开关就完全退回原来的逐行 run 配对算法。
+COLUMN_SCAN_ENABLED = True
 
 # ---------- 巡线中点的静态偏置（像素）----------
 # 车明明摆在车道正中，屏幕上 err 却不是 0，就用这个把中性点扳回来：
@@ -156,7 +171,7 @@ FORWARD_SPEED = 0.30   #0.3
 MINIMUM_FORWARD_SPEED = 0.20
 
 # 最大转向角速度（rad/s）。弯道转不过去就略增大。
-MAX_ANGULAR_SPEED = 0.40
+MAX_ANGULAR_SPEED = 0.50  #0.4
 
 # 转向比例增益：err=1 时输出的角速度 = STEERING_KP × MAX_ANGULAR_SPEED。
 # 偏大 → 左右画龙（实测峰峰 40cm 以上），冲桥会被甩下去；
@@ -211,7 +226,7 @@ BRIDGE_VISUAL_MAX_W = 0.10
 # 保留旧参数加载兼容；新状态机不使用这些秒数判断离桥。
 BRIDGE_CLIMB_SECONDS = 2.0
 BRIDGE_MIN_HOLD_SECONDS = 2.5
-BRIDGE_PASS_SECONDS = 2.2
+BRIDGE_PASS_SECONDS = 2.0  #2.2
 
 # 黄黑胶带进入画面这个高度范围，才算“靠近桥面”（0=画面顶，1=画面底）。
 # 框顶太靠上会过早开始计时，走到桥头加速/右偏已经结束。
@@ -371,6 +386,8 @@ class DualYellowLineDetector:
         self.base_min_single_coverage = 0.22
         self.base_near_lock_ratio = NEAR_LOCK_RATIO
         self.force_left_line = False
+        # 最长白列模式：由节点按赛道阶段切换（过桥前 True）
+        self.column_scan = False
         self._hud_cx: Optional[float] = None
         self._hud_cy: Optional[float] = None
 
@@ -546,7 +563,317 @@ class DualYellowLineDetector:
         striped = self._stripe_exclusion_mask(yellow, black)
         return cv2.bitwise_and(yellow, cv2.bitwise_not(striped))
 
+    # ------------------------------------------------------------------
+    # 最长白列 + 逐行边界搜索 + 远端拟合延伸
+    # 参考智能车常用的 Longest_White_Column_Edge_Detection：
+    #   1) 统计每列从画面底部向上的连续白点数
+    #   2) 最左 / 最右的「最长白列」分别作为左线、右线的种子列
+    #   3) 自底向上，从种子列向外找「白→黑」跳变得到左右边界
+    #   4) 本条补充：丢线的行用已检出行的一阶拟合外推（远端 → 近端）
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _column_run_lengths(mask: np.ndarray) -> np.ndarray:
+        """每列从最底行开始向上的连续白点数。"""
+        white = mask > 0
+        height, width = white.shape
+        lengths = np.zeros(width, dtype=np.int32)
+        if height == 0:
+            return lengths
+        alive = white[height - 1].copy()
+        lengths += alive
+        for row_y in range(height - 2, -1, -1):
+            alive &= white[row_y]
+            if not alive.any():
+                break
+            lengths += alive
+        return lengths
+
+    @staticmethod
+    def _fit_extend(
+        edges: np.ndarray, width: int, max_rows: int, min_points: int
+    ) -> Tuple[np.ndarray, np.ndarray, bool]:
+        """丢失行用已检出行的一阶拟合外推。返回 (补齐后, 外推行掩码, 是否拟合)。"""
+        out = edges.copy()
+        filled = np.zeros(edges.shape, dtype=bool)
+        index = np.flatnonzero(np.isfinite(edges))
+        if index.size < min_points:
+            return out, filled, False
+        missing = np.flatnonzero(~np.isfinite(edges))
+        if missing.size == 0:
+            return out, filled, False
+        gap = np.min(np.abs(missing[:, None] - index[None, :]), axis=1)
+        near = gap <= max_rows
+        if not np.any(near):
+            return out, filled, False
+        slope = float(np.polyfit(index.astype(float), edges[index], 1)[0])
+        slope = float(np.clip(slope, -COLUMN_FIT_MAX_SLOPE, COLUMN_FIT_MAX_SLOPE))
+        intercept = float(np.mean(edges[index]) - slope * float(np.mean(index)))
+        rows = missing[near]
+        out[rows] = np.clip(slope * rows + intercept, 0.0, float(width - 1))
+        filled[rows] = True
+        return out, filled, True
+
+    def _column_scan_edges(
+        self, mask: np.ndarray, target_x: float
+    ) -> Tuple[np.ndarray, np.ndarray, int, int, int]:
+        """返回 (left_inner, right_inner, left_col, right_col, stop_rows)。
+
+        数组长度 = ROI 行数，索引 0 = ROI 顶部、末位 = ROI 底部（贴着车）。
+        left_inner 是左泡沫的右内沿，right_inner 是右泡沫的左内沿。
+        """
+        height, width = mask.shape
+        left_inner = np.full(height, np.nan)
+        right_inner = np.full(height, np.nan)
+        if height < 4 or width < 4 or not np.any(mask):
+            return left_inner, right_inner, -1, -1, 0
+
+        lengths = self._column_run_lengths(mask)
+        counts = np.count_nonzero(mask > 0, axis=0)
+        if int(counts.max()) <= 0:
+            return left_inner, right_inner, -1, -1, 0
+        # 种子列：左右半区各取「白点总数最多」的一列。
+        # 不能照搬「从底行往上连续白点数最多」：赛道上左侧近处泡沫贴着画面左下角，
+        # 右侧远处泡沫悬在画面上半部，它所在列的底部连续长度恒为 0，
+        # 于是两个种子会同时落进左边那根泡沫，右边界永远找不到。
+        split = int(np.clip(round(target_x), 1, width - 2))
+        left_half = counts[:split]
+        right_half = counts[split:]
+        # 某一半区完全没有白点就给 -1，表示该侧这条线不存在，
+        # 不能把 argmax 的 0 当成真的种子列。
+        left_col = int(np.argmax(left_half)) if int(left_half.max()) > 0 else -1
+        right_col = (
+            split + int(np.argmax(right_half)) if int(right_half.max()) > 0 else -1
+        )
+        if left_col < 0 and right_col < 0:
+            return left_inner, right_inner, -1, -1, 0
+        stop_rows = (
+            int(min(lengths[left_col], lengths[right_col]))
+            if left_col >= 0 and right_col >= 0
+            else 0
+        )
+        search_start = 0
+
+        min_line_width = max(2, int(width * self.min_line_width_ratio))
+        max_line_width = max(
+            min_line_width + 1, int(width * self.max_line_width_ratio)
+        )
+        padded = np.zeros((height, width + 2), dtype=np.int8)
+        padded[:, 1:-1] = mask > 0
+        changes = np.diff(padded, axis=1)
+        run_rows, run_starts = np.nonzero(changes == 1)
+        _, run_ends = np.nonzero(changes == -1)
+        run_widths = run_ends - run_starts
+        keep = (run_widths >= min_line_width) & (run_widths <= max_line_width)
+        row_runs: List[List[Tuple[int, int]]] = [[] for _ in range(height)]
+        for row_y, start, end in zip(
+            run_rows[keep].tolist(),
+            run_starts[keep].tolist(),
+            run_ends[keep].tolist(),
+        ):
+            row_runs[row_y].append((start, end))
+
+        for row_y in range(height - 1, search_start - 1, -1):
+            runs = row_runs[row_y]
+            if not runs:
+                continue
+            left_run = next(
+                (item for item in runs if item[0] <= left_col < item[1]), None
+            )
+            right_run = next(
+                (item for item in runs if item[0] <= right_col < item[1]), None
+            )
+            # 种子列在这一行不是白的 → 该侧这条线在本行不可见，留空交给
+            # _fit_extend 外推。绝不能退化成"最近的 run"：近处泡沫占满左下半屏时
+            # 那样会把远处碎块当右边界，甚至把同一条泡沫当成左右两条线。
+            if left_run is None and right_run is None:
+                continue
+            if left_run is not None and left_run == right_run:
+                # 两个种子落在同一条泡沫里，只能当单边线用
+                run_center = 0.5 * (left_run[0] + left_run[1] - 1)
+                if run_center <= target_x:
+                    left_inner[row_y] = float(left_run[1] - 1)
+                else:
+                    right_inner[row_y] = float(left_run[0])
+                continue
+            if left_run is not None:
+                left_inner[row_y] = float(left_run[1] - 1)
+            if right_run is not None:
+                right_inner[row_y] = float(right_run[0])
+        return left_inner, right_inner, left_col, right_col, stop_rows
+
+    def _centers_from_edges(
+        self,
+        left_inner: np.ndarray,
+        right_inner: np.ndarray,
+        width: int,
+        target_x: float,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """补全丢失行 → 逐行算虚拟中点。"""
+        left_fill, left_ext, _ = self._fit_extend(
+            left_inner, width, COLUMN_FIT_MAX_ROWS, COLUMN_FIT_MIN_POINTS
+        )
+        right_fill, right_ext, _ = self._fit_extend(
+            right_inner, width, COLUMN_FIT_MAX_ROWS, COLUMN_FIT_MIN_POINTS
+        )
+        min_lane = width * self.min_lane_width_ratio
+        max_lane = width * self.max_lane_width_ratio
+        centers = np.full(left_inner.shape, np.nan)
+        for row_y in range(centers.size):
+            left_x = left_fill[row_y]
+            right_x = right_fill[row_y]
+            if (
+                np.isfinite(left_x)
+                and np.isfinite(right_x)
+                and min_lane <= (right_x - left_x) <= max_lane
+            ):
+                centers[row_y] = 0.5 * (left_x + right_x)
+            elif np.isfinite(left_x):
+                centers[row_y] = left_x + self.single_left_half_ratio * width
+            elif np.isfinite(right_x):
+                centers[row_y] = right_x - self.single_right_half_ratio * width
+        # 单边半宽推出来的中点可能跑出画面，必须裁掉，否则调试绘制会越界。
+        np.clip(centers, 0.0, float(width - 1), out=centers)
+        return centers, left_fill, right_fill, left_ext, right_ext
+
+    def _detect_columns(self, frame: np.ndarray) -> DetectionResult:
+        """最长白列版巡线。仅在没过单边桥时使用。"""
+        height, width = frame.shape[:2]
+        debug = np.zeros((height, width, 3), dtype=np.uint8)
+        x0 = int(width * self.search_left_ratio)
+        x1 = int(width * self.search_right_ratio)
+        y0 = int(height * self.search_top_ratio)
+        y1 = int(height * self.search_bottom_ratio)
+        roi = frame[y0:y1, x0:x1]
+        if roi.size == 0:
+            return DetectionResult(False, 0.0, 0.0, "empty_roi", debug)
+
+        full_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = self._yellow_mask(full_hsv)[y0:y1, x0:x1].copy()
+        if self.morphology_kernel > 1:
+            kernel = np.ones(
+                (self.morphology_kernel, self.morphology_kernel), dtype=np.uint8
+            )
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        roi_height, roi_width = mask.shape
+        target_x = 0.5 * width + self.target_offset_pixels
+
+        (left_inner, right_inner, left_col, right_col, stop_rows) = (
+            self._column_scan_edges(mask, target_x)
+        )
+        (centers, left_fill, right_fill, left_ext, right_ext) = (
+            self._centers_from_edges(left_inner, right_inner, roi_width, target_x)
+        )
+
+        measured_left = int(np.count_nonzero(np.isfinite(left_inner)))
+        measured_right = int(np.count_nonzero(np.isfinite(right_inner)))
+        both_rows = int(
+            np.count_nonzero(np.isfinite(left_inner) & np.isfinite(right_inner))
+        )
+        left_edge_x = (
+            float(np.mean(left_inner[np.isfinite(left_inner)]))
+            if measured_left
+            else 0.0
+        )
+        # 拟合延伸出来的行也算「这条边界可用」：大弯段常常只有十几行能真正
+        # 看见泡沫，但延伸出来的是整条边界模型，靠它才能算出稳定的 err。
+        line_rows_left = int(np.count_nonzero(np.isfinite(left_fill)))
+        line_rows_right = int(np.count_nonzero(np.isfinite(right_fill)))
+
+        # 调试层：掩膜 + 边界点（绿=实测，橙=拟合延伸）+ 中心
+        debug[y0:y1, x0:x1] = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+        cv2.rectangle(debug, (x0, y0), (x1, y1), (80, 80, 80), 1)
+        cv2.line(
+            debug, (int(target_x), y0), (int(target_x), y1),
+            (160, 160, 160), 1, cv2.LINE_AA,
+        )
+        for row_y in range(roi_height):
+            row_px = y0 + row_y
+            for edge, fill in (
+                (left_inner[row_y], left_fill[row_y]),
+                (right_inner[row_y], right_fill[row_y]),
+            ):
+                if np.isfinite(edge):
+                    debug[row_px, x0 + int(edge)] = (0, 220, 0)
+                elif np.isfinite(fill):
+                    debug[row_px, x0 + int(fill)] = (0, 140, 255)
+            if np.isfinite(centers[row_y]):
+                debug[row_px, x0 + int(centers[row_y])] = (255, 255, 255)
+        valid_rows = np.flatnonzero(np.isfinite(centers))
+        stats = (
+            f"COL L{measured_left} R{measured_right} lx={left_edge_x:.0f} "
+            f"both={both_rows} stop={stop_rows} "
+            f"ext={int(np.count_nonzero(left_ext | right_ext))} "
+            f"eff={line_rows_left},{line_rows_right} "
+            f"seg={x0 + left_col},{x0 + right_col}"
+            if left_col >= 0
+            else "COL no white column"
+        )
+        cv2.putText(
+            debug, stats,
+            (max(8, x0 + 6), min(debug.shape[0] - 10, y1 + 18)),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.40, (180, 180, 180), 1, cv2.LINE_AA,
+        )
+
+        lane_width_pixels = 0.0
+        if both_rows:
+            widths = right_inner[np.isfinite(left_inner) & np.isfinite(right_inner)] - left_inner[
+                np.isfinite(left_inner) & np.isfinite(right_inner)
+            ]
+            lane_width_pixels = float(np.mean(widths))
+
+        if valid_rows.size == 0:
+            return DetectionResult(
+                False, 0.0, 0.0, "no_yellow_lines", debug,
+                0.0, measured_left, measured_right, left_edge_x,
+            )
+
+        row_weight = 1.0 + 1.4 * (valid_rows / max(1, roi_height - 1))
+        lane_center = float(
+            np.average(centers[valid_rows], weights=row_weight)
+        )
+        error = float(
+            np.clip((lane_center - target_x) / (0.5 * width), -1.0, 1.0)
+        )
+        coverage = valid_rows.size / max(1, roi_height)
+        # 单边线是合法模式（大弯段只看得见左侧外沿海绵），不能因为 both=0
+        # 就把置信度压到 0.55 以下——_usable_turn_line 的 0.70 门限会把它
+        # 全部判成丢线，结果就是车停在弯道里。
+        both_ratio = both_rows / max(1, max(measured_left, measured_right))
+        single_floor = 0.80 if (measured_left or measured_right) else 0.0
+        confidence = float(
+            np.clip(
+                0.55 * min(1.0, coverage / max(self.min_valid_row_fraction, 0.12))
+                + 0.45 * max(both_ratio, single_floor),
+                0.0,
+                1.0,
+            )
+        )
+        look_y = y0 + int(0.62 * roi_height)
+        cv2.circle(
+            debug,
+            (x0 + int(lane_center), look_y),
+            8, (255, 255, 255), 2, cv2.LINE_AA,
+        )
+        if coverage < self.min_valid_row_fraction:
+            return DetectionResult(
+                False, error, confidence, "insufficient_double_line", debug,
+                lane_width_pixels, line_rows_left, line_rows_right, left_edge_x,
+            )
+        if confidence < self.min_confidence:
+            return DetectionResult(
+                False, error, confidence, "low_confidence", debug,
+                lane_width_pixels, line_rows_left, line_rows_right, left_edge_x,
+            )
+        reason = "tracking" if both_rows > 0 else "single_line"
+        return DetectionResult(
+            True, error, confidence, reason, debug,
+            lane_width_pixels, line_rows_left, line_rows_right, left_edge_x,
+        )
+
     def detect(self, frame: np.ndarray) -> DetectionResult:
+        if self.column_scan:
+            return self._detect_columns(frame)
         height, width = frame.shape[:2]
         debug = np.zeros((height, width, 3), dtype=np.uint8)
         x0 = int(width * self.search_left_ratio)
@@ -1818,6 +2145,11 @@ class ShiWaiFollower(Node):
         self.line_detector.target_offset_pixels = float(
             offset + TARGET_OFFSET_PIXELS
         )
+        # 冲桥阶段（crossing / exit_slow / exit_hold）必须保持原有算法，
+        # 这一段不参与最长白列检测；进桥前和下桥后的大弯才用它。
+        self.line_detector.column_scan = (
+            COLUMN_SCAN_ENABLED and not self._bridge.crossing
+        )
         if self._mode == self.MODE_CROUCH:
             self.line_detector.single_left_half_ratio = TUNNEL_SINGLE_LEFT_HALF_RATIO
             self.line_detector.single_right_half_ratio = TUNNEL_SINGLE_RIGHT_HALF_RATIO
@@ -2621,6 +2953,10 @@ class ShiWaiFollower(Node):
         )
 
     def _detect_lane(self, frame: np.ndarray) -> DetectionResult:
+        # 最长白列模式下 force_left_line / 双线配对都不参与了，
+        # 再跑一次 detect_normal() 只会把 CPU 加倍、结果还一样。
+        if self.line_detector.column_scan:
+            return self.line_detector.detect(frame)
         if not self._in_right_turn():
             self._turn_fallback_active = False
             return self.line_detector.detect(frame)
