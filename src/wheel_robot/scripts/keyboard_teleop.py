@@ -49,6 +49,10 @@ class KeyboardTeleop(Node):
         self.declare_parameter("height", 0.25)
         self.declare_parameter("pitch_limit_deg", 10.0)
         self.declare_parameter("pitch_step_deg", 1.0)
+        # 启动时的俯仰角（度）。正数=低头，与赛场节点 PITCH_DEG 同号。
+        # 会按 pitch_slew_rate_dps 的速率从 0 坡上去，不会一下子跳。
+        self.declare_parameter("pitch_deg", 0.0)
+        self.declare_parameter("pitch_slew_rate_dps", 20.0)
         self.declare_parameter("slide_limit_m", 0.08)
         self.declare_parameter("slide_step_m", 0.005)
         self.declare_parameter("slide_slew_rate_mps", 0.25)
@@ -62,6 +66,9 @@ class KeyboardTeleop(Node):
         self.height = float(self.get_parameter("height").value)
         self.pitch_limit_deg = abs(float(self.get_parameter("pitch_limit_deg").value))
         self.pitch_step_deg = abs(float(self.get_parameter("pitch_step_deg").value))
+        self.pitch_slew_rate_dps = abs(
+            float(self.get_parameter("pitch_slew_rate_dps").value)
+        )
         self.slide_limit_m = abs(float(self.get_parameter("slide_limit_m").value))
         self.slide_step_m = abs(float(self.get_parameter("slide_step_m").value))
         self.slide_slew_rate_mps = abs(
@@ -75,6 +82,12 @@ class KeyboardTeleop(Node):
         self.angular = 0.0
         self.roll = 0.0
         self.pitch = 0.0
+        # 目标俯仰由参数给定，实际值按 20°/s 坡上去（与赛场节点 PITCH_RATE_DEG 一致）
+        self.pitch_target = self.clamp(
+            float(self.get_parameter("pitch_deg").value),
+            -self.pitch_limit_deg,
+            self.pitch_limit_deg,
+        )
         self.slide = 0.0
         self.slide_target = 0.0
         self.last_motion_key = 0.0
@@ -165,15 +178,15 @@ class KeyboardTeleop(Node):
             self.roll = self.clamp(self.roll + 1.0, -15.0, 15.0)
             self.print_status("横滚右倾")
         elif key == "i":
-            self.pitch = self.clamp(
-                self.pitch - self.pitch_step_deg,
+            self.pitch_target = self.clamp(
+                self.pitch_target - self.pitch_step_deg,
                 -self.pitch_limit_deg,
                 self.pitch_limit_deg,
             )
             self.print_status("机身抬头")
         elif key == "k":
-            self.pitch = self.clamp(
-                self.pitch + self.pitch_step_deg,
+            self.pitch_target = self.clamp(
+                self.pitch_target + self.pitch_step_deg,
                 -self.pitch_limit_deg,
                 self.pitch_limit_deg,
             )
@@ -197,6 +210,7 @@ class KeyboardTeleop(Node):
         elif key == "x":
             self.roll = 0.0
             self.pitch = 0.0
+            self.pitch_target = 0.0
             self.slide = 0.0
             self.slide_target = 0.0
             self.print_status("姿态归零")
@@ -233,6 +247,9 @@ class KeyboardTeleop(Node):
         max_slide_step = self.slide_slew_rate_mps * dt
         slide_error = self.slide_target - self.slide
         self.slide += self.clamp(slide_error, -max_slide_step, max_slide_step)
+        max_pitch_step = self.pitch_slew_rate_dps * dt
+        pitch_error = self.pitch_target - self.pitch
+        self.pitch += self.clamp(pitch_error, -max_pitch_step, max_pitch_step)
 
     def publish_commands(self) -> None:
         self.check_deadman()

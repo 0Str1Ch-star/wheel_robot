@@ -138,6 +138,76 @@ COLUMN_FIT_MAX_SLOPE = 1.5     # px/row，防止远端外推飞掉
 # 冲桥那一段一行都不能动，关掉开关就完全退回原来的逐行 run 配对算法。
 COLUMN_SCAN_ENABLED = True
 
+# 连续内沿与急弯控制；权重按近、中、远排列，方向项在误差滤波前加入。
+CURVE_BOTTOM_RATIO = 0.98
+CURVE_MIN_POINTS = 24
+CURVE_MIN_SPAN_RATIO = 0.12
+CURVE_MAX_GAP_PIXELS = 24
+CURVE_ASSOCIATION_GAP_RATIO = 0.15
+CURVE_MAX_FIT_RMS = 8.0
+CURVE_FILL_WEIGHT = 0.25
+CURVE_FILL_TOTAL_RATIO = 0.25
+CURVE_STRAIGHT_WEIGHTS = (0.50, 0.35, 0.15)
+CURVE_SHARP_WEIGHTS = (0.20, 0.30, 0.50)
+CURVE_HEADING_START_DEG = 55.0
+CURVE_HEADING_FULL_DEG = 85.0
+CURVE_HEADING_GAIN = 0.40
+# 出桥看见弯道不等于车轮已到弯口：WAIT 保持出桥航向直行，不使用黄线误差。
+# 近处条件只看画面中央 30% 内的实测点，不能用补点或近处的侧边端点触发。
+# 181332 录像实测 row 轨迹（15 fps，这段约 10 px/帧）：8.4s=316 8.6s=335 8.8s=353
+# 9.0s=377 9.2s=407 9.4s=445。旧的 0.9(432) 要等到 9.5s，那时 pos 已 +0.72、
+# 边界 0.4 s 后就消失；0.5(240) 出桥第一帧就退太早；0.7(336) 也还偏早。
+# 实测合适的入弯点是泡沫进入人行道检测框（CROSSWALK_TOP_RATIO=0.72，第 346 行）
+# 之后再走约两帧，故取 0.80(=384)：3 帧确认正好在 9.2s / dist=1.73m / row=407 完成。
+TURN_ENTRY_NEAR_ROW_RATIO = 0.8  # 480 高时 need=384。
+TURN_ENTRY_CENTER_HALF_RATIO = 0.15
+TURN_ENTRY_MIN_X_SPAN_RATIO = 0.10
+TURN_ENTRY_CONFIRM_FRAMES = 3
+TURN_ENTRY_MAX_W = 0.12  # rad/s，仅限制 WAIT 的 IMU 航向纠偏，不再读取黄线误差。
+TURN_WAIT_HEADING_KP = 1.0  # 航向误差用弧度；速度直接使用正常巡线 forward_speed。
+# ---- 出弯判定 + 出弯摆正 ----
+# 190415 录像实测：左泡沫在斑马线框（行 346~451）内的最右端，
+# 13.8s=617 14.6s=553 15.2s=511 15.4s=319 16.2s=257，之后不再回升。
+# 也就是泡沫右端从框右侧退到画面中线左侧时，大弯实际已经走完。
+# 但 12.8~13.6s 框内最右端只有 319（泡沫还没铺满右侧），所以必须先「armed」：
+# 只有它真的伸到 0.75 宽以右之后，再退到 0.50 宽以左才算数。
+TURN_EXIT_ARM_X_RATIO = 0.75
+TURN_EXIT_BOX_X_RATIO = 0.50
+TURN_EXIT_CONFIRM_FRAMES = 3
+# 光看框内最右端不够：194528 录像 14.2s 泡沫还没完全出框就判成 Y（pos=+0.17 dir=+0.73），
+# 而你要的 15.0s 是 pos=-0.00 dir=+0.54。所以再加两道 HUD 可见的守卫。
+TURN_EXIT_MAX_TURN_STRENGTH = 0.60   # 方向项必须已衰减到这个值以下
+TURN_EXIT_MAX_LATERAL = 0.60         # 只做粗筛，防止车已经飞出赛道还判出弯；不能设小，
+                                     # 否则出弯一直不触发时 pos 在弯里本来就可能到 0.4，
+                                     # 这道门会永远过不去、把 exit 卡死。
+# 出弯后用近端中心线斜率当航向误差把车身摆正：
+# 车对准直道时斜率≈ 0，所以它是零偏置的真误差，不像 turn_strength 那样是常值偏置。
+TURN_EXIT_SLOPE_GAIN = 0.45
+TURN_EXIT_SLOPE_REF = 0.45   # px/row，斜率到这个值算满量程。
+# 近处半宽先验的参考行；真正宽度只从同帧双边实测更新。
+LANE_HALF_RATIO_REFERENCE = 0.30
+LANE_WIDTH_HORIZON_RATIO = 0.10
+LANE_WIDTH_REFERENCE_ROW_RATIO = 0.90
+LANE_WIDTH_MIN_ROWS = 24
+LANE_WIDTH_MIN_SPAN_RATIO = 0.15
+LANE_WIDTH_BLEND = 0.20
+LANE_WIDTH_EXTRAPOLATION_RATIO = 0.12
+LANE_SIDE_MATCH_RATIO = 0.06
+LANE_LEFT_RETURN_FRAMES = 3
+# 只用于桥前选线；阈值按整幅图像高度计算，不能由补线点满足。
+PRE_BRIDGE_NEAR_ROW_RATIO = 0.60
+PRE_BRIDGE_MIN_NEAR_ROWS_RATIO = 0.02
+PRE_BRIDGE_MIN_ROWS_RATIO = 0.10
+PRE_BRIDGE_MIN_Y_SPAN_RATIO = 0.15
+PRE_BRIDGE_MAX_ROW_SLOPE = 8.0
+# 桥前半宽：以用户最后提供的 163547 截图红线（桥左外沿）为中线参考。
+# 同一行 half = 红线x - 左泡沫内沿x；不是到图像中轴的距离，也不自动清零误差。
+# 截图几何近似标定，直接支持 y≈212~370（640x480）；范围外为透视外推。
+# half/W = slope*(y/H) + intercept；y=300/360/432 时约 254/347/458px。
+# 仅桥前默认先验；已有双边实测模型仍优先，桥后急弯和桥上路径不变。
+PRE_BRIDGE_HALF_WIDTH_SLOPE = 1.15716
+PRE_BRIDGE_HALF_WIDTH_INTERCEPT = -0.32589
+
 # ---------- 巡线中点的静态偏置（像素）----------
 # 车明明摆在车道正中，屏幕上 err 却不是 0，就用这个把中性点扳回来：
 #     TARGET_OFFSET_PIXELS = 摆正时的 err × 320
@@ -171,7 +241,7 @@ FORWARD_SPEED = 0.30   #0.3
 MINIMUM_FORWARD_SPEED = 0.20
 
 # 最大转向角速度（rad/s）。弯道转不过去就略增大。
-MAX_ANGULAR_SPEED = 0.50  #0.4
+MAX_ANGULAR_SPEED = 0.45  #0.4，0.55
 
 # 转向比例增益：err=1 时输出的角速度 = STEERING_KP × MAX_ANGULAR_SPEED。
 # 偏大 → 左右画龙（实测峰峰 40cm 以上），冲桥会被甩下去；
@@ -182,7 +252,7 @@ STEERING_KP = 0.75
 CURVE_SLOWDOWN = 0.60
 
 # 看见单边桥黄黑胶带后冲上桥面的速度（m/s），应比 FORWARD_SPEED 大。
-BRIDGE_CLIMB_SPEED = 0.40
+BRIDGE_CLIMB_SPEED = 0.45  #0.4
 
 # 视觉预告 + IMU 上桥/回平确认。所有新参数只在 lin 文件内维护。
 BRIDGE_IMU_LEGACY_ORDER = True  # 当前桥接 x,y,z,w 中实际存的是 q0,q1,q2,q3。
@@ -223,6 +293,11 @@ BRIDGE_LOST_LINE_TIMEOUT = 2.50
 BRIDGE_HEADING_KP = 1.0
 BRIDGE_MAX_W = 0.20
 BRIDGE_VISUAL_MAX_W = 0.10
+# 桥上单边视觉只复用本帧检测结果，不重复处理图像，也不设单边持续时间上限。
+BRIDGE_SINGLE_MIN_CONFIDENCE = 0.85
+BRIDGE_SINGLE_MIN_ROWS = 40
+BRIDGE_SINGLE_MAX_OTHER_RATIO = 0.25  # 少量另一侧点不能冒充可靠双边。
+BRIDGE_SINGLE_IMU_RATIO = 0.50       # IMU 辅助不超过单边视觉修正幅度的一半。
 # 保留旧参数加载兼容；新状态机不使用这些秒数判断离桥。
 BRIDGE_CLIMB_SECONDS = 2.0
 BRIDGE_MIN_HOLD_SECONDS = 2.5
@@ -309,6 +384,22 @@ class DetectionResult:
     left_line_rows: int = 0
     right_line_rows: int = 0
     left_edge_x: float = 0.0
+    curve_mode: bool = False
+    lateral_error: float = 0.0
+    heading_error: float = 0.0
+    turn_strength: float = 0.0
+    measured_points: int = 0
+    boundary_span_pixels: float = 0.0
+    boundary_side: str = ""
+    band_weights: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    fill_weight_fraction: float = 0.0
+    logic_rejected_points: int = 0
+    turn_prior_applied: bool = False
+    width_source: str = "prior"
+    turn_exit_ready: bool = False
+    heading_slope: float = 0.0
+    turn_entry_ready: bool = False
+    turn_entry_row: float = 0.0
 
 
 @dataclass
@@ -386,8 +477,23 @@ class DualYellowLineDetector:
         self.base_min_single_coverage = 0.22
         self.base_near_lock_ratio = NEAR_LOCK_RATIO
         self.force_left_line = False
-        # 最长白列模式：由节点按赛道阶段切换（过桥前 True）
+        # 连续内沿模式：由节点切换，桥上仍用原检测路径。
         self.column_scan = False
+        self.expected_turn_direction = 0  # 0=通用；+1=桥后到人行道前的唯一右弯。
+        self.prefer_left_line = True
+        self.pre_bridge_guard = False
+        self.width_profile = "standing"
+        self._curve_tracks = {}
+        self._curve_track_key = None
+        self._curve_control_side = None
+        self._curve_left_return_frames = 0
+        self._curve_width_model = None
+        self._curve_width_key = None
+        self._curve_turn_entry_ready = False
+        self._curve_turn_entry_count = 0
+        self._curve_exit_armed = False
+        self._curve_exit_ready = False
+        self._curve_exit_count = 0
         self._hud_cx: Optional[float] = None
         self._hud_cy: Optional[float] = None
 
@@ -455,7 +561,7 @@ class DualYellowLineDetector:
 
     @staticmethod
     def _stripe_exclusion_mask(
-        yellow: np.ndarray, black: np.ndarray
+        yellow: np.ndarray, black: np.ndarray, local_only: bool = False
     ) -> np.ndarray:
         """只排除有局部重复黄黑交替支持的黄色连通块。
 
@@ -529,6 +635,9 @@ class DualYellowLineDetector:
             evidence, np.ones((pad_size, pad_size), dtype=np.uint8)
         )
 
+        if local_only:
+            return cv2.bitwise_and(yellow, supported)
+
         # 按黄色连通块删除，不扩大暗地面的边缘。支持比例门限可避免仅
         # 擦到条纹支持域的一小部分，就把整条长黄色海绵一起删除。
         count, labels, stats, _ = cv2.connectedComponentsWithStats(
@@ -543,7 +652,7 @@ class DualYellowLineDetector:
         excluded[remove[labels]] = 255
         return excluded
 
-    def _yellow_mask(self, hsv: np.ndarray) -> np.ndarray:
+    def _yellow_mask(self, hsv: np.ndarray, local_only: bool = False) -> np.ndarray:
         yellow = cv2.inRange(
             hsv,
             np.array(
@@ -560,7 +669,7 @@ class DualYellowLineDetector:
                 dtype=np.uint8,
             ),
         )
-        striped = self._stripe_exclusion_mask(yellow, black)
+        striped = self._stripe_exclusion_mask(yellow, black, local_only)
         return cv2.bitwise_and(yellow, cv2.bitwise_not(striped))
 
     # ------------------------------------------------------------------
@@ -735,141 +844,628 @@ class DualYellowLineDetector:
         np.clip(centers, 0.0, float(width - 1), out=centers)
         return centers, left_fill, right_fill, left_ext, right_ext
 
-    def _detect_columns(self, frame: np.ndarray) -> DetectionResult:
-        """最长白列版巡线。仅在没过单边桥时使用。"""
-        height, width = frame.shape[:2]
-        debug = np.zeros((height, width, 3), dtype=np.uint8)
-        x0 = int(width * self.search_left_ratio)
-        x1 = int(width * self.search_right_ratio)
-        y0 = int(height * self.search_top_ratio)
-        y1 = int(height * self.search_bottom_ratio)
-        roi = frame[y0:y1, x0:x1]
-        if roi.size == 0:
-            return DetectionResult(False, 0.0, 0.0, "empty_roi", debug)
+    @staticmethod
+    def _curve_fit_samples(points: np.ndarray, horizontal: bool, side: str,
+                           width: int, height: int):
+        """沿可观测方向拟合二次曲线；只补小缺口，不跨大段未知区域。"""
+        axis = 0 if horizontal else 1
+        u, v = points[:, axis], points[:, 1-axis]
+        if len(u) < CURVE_MIN_POINTS or np.ptp(u) < CURVE_MIN_SPAN_RATIO * width:
+            return None
+        # 单点毛刺先按邻域中值剔除，再用整段曲线残差排除成簇的异常点。
+        initial_points = len(points)
+        original_points = points
+        local = cv2.medianBlur(v.astype(np.float32).reshape(1, -1), 5).reshape(-1)
+        coherent = np.abs(v-local) <= max(4.0, 0.01*width)
+        points, u, v = points[coherent], u[coherent], v[coherent]
+        if len(points) < CURVE_MIN_POINTS:
+            return None
+        origin, scale = float(np.mean(u)), max(1.0, float(np.ptp(u)))
+        z = (u-origin)/scale
+        keep = np.ones(len(u), dtype=bool)
+        for _ in range(3):
+            if np.count_nonzero(keep) < CURVE_MIN_POINTS:
+                return None
+            coef = np.polyfit(z[keep], v[keep], 2)
+            residual = v - np.polyval(coef, z)
+            median = float(np.median(residual[keep]))
+            mad = float(np.median(np.abs(residual[keep]-median)))
+            next_keep = np.abs(residual-median) <= max(3.0, 3.0*1.4826*mad)
+            if np.array_equal(next_keep, keep):
+                break  # 点集不再变化就停止拟合，避免占用下一帧的处理时间。
+            keep = next_keep
+        if np.mean(keep) < 0.65 or np.count_nonzero(keep) < CURVE_MIN_POINTS:
+            return None
+        coef = np.polyfit(z[keep], v[keep], 2)
+        rms = float(np.sqrt(np.mean((v[keep]-np.polyval(coef, z[keep]))**2)))
+        if rms > CURVE_MAX_FIT_RMS:
+            return None
+        measured = points[keep].copy()
+        observed = u[keep].astype(int)
+        # 外推长度同时受像素上限与实测跨度限制；远端最多约 10%。
+        extension = min(CURVE_MAX_GAP_PIXELS, max(1, int(np.ptp(observed)*0.10)))
+        limit = width if horizontal else height
+        grid = np.arange(max(0, int(observed.min())-extension),
+                         min(limit, int(observed.max())+extension+1))
+        insertion = np.searchsorted(observed, grid)
+        before = observed[np.clip(insertion-1, 0, len(observed)-1)]
+        after = observed[np.clip(insertion, 0, len(observed)-1)]
+        distance = np.minimum(np.abs(grid-before), np.abs(grid-after))
+        small_gap = ((distance == 0) | ((after-before) <= CURVE_MAX_GAP_PIXELS)
+                     | (grid < observed[0]) | (grid > observed[-1]))
+        select = (distance <= extension) & small_gap
+        grid, distance = grid[select], distance[select]
+        fit = np.polyval(coef, (grid-origin)/scale)
+        path = np.column_stack((grid, fit) if horizontal else (fit, grid))
+        inside = (path[:, 0] >= 0) & (path[:, 0] < width) & (path[:, 1] >= 0) & (path[:, 1] < height)
+        path, distance = path[inside], distance[inside]
+        if len(path) < CURVE_MIN_POINTS:
+            return None
+        # 统一按近到远排列。横向边沿采用左右侧的前进方向，避免 y 接近水平时乱序。
+        reverse = not horizontal
+        if horizontal:
+            endpoint_delta = float(np.median(path[-12:, 1])-np.median(path[:12, 1]))
+            reverse = endpoint_delta > 0 if abs(endpoint_delta) > 8.0 else side == 'right'
+        if reverse:
+            path, distance = path[::-1].copy(), distance[::-1].copy()
+        measured_support = distance == 0
+        quality = np.where(measured_support, 1.0,
+                           CURVE_FILL_WEIGHT*np.exp(-distance/max(1.0, extension)))
+        return dict(path=path, measured=measured, support=measured_support,
+                    quality=quality, side=side, horizontal=horizontal, rms=rms,
+                    fit_fraction=float(np.mean(keep)),
+                    rejected=np.vstack((original_points[~coherent], points[~keep])),
+                    rejected_points=initial_points-int(np.count_nonzero(keep)))
 
-        full_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = self._yellow_mask(full_hsv)[y0:y1, x0:x1].copy()
+    def _curve_match_side(self, points, horizontal, width):
+        """只关联本帧实测点的身份；不把旧点混入本帧控制误差。"""
+        axis = 0 if horizontal else 1
+        matches = []
+        near_now = points[points[:, 1] >= np.max(points[:, 1])-.10*np.ptp(points[:, 1]), 0]
+        anchor = float(np.median(near_now))
+        for side, track in self._curve_tracks.items():
+            if track['horizontal'] != horizontal:
+                continue
+            old = track['measured']
+            # 镜像边界可能在画面中部交叠，近端却位于相反两侧，不能认成同一条线。
+            if abs(anchor-track['near_x']) > 2*LANE_SIDE_MATCH_RATIO*width:
+                continue
+            overlapping = points[(points[:, axis] >= old[0, axis])
+                                 & (points[:, axis] <= old[-1, axis])]
+            if len(overlapping) < CURVE_MIN_POINTS:
+                continue
+            predicted = np.interp(overlapping[:, axis], old[:, axis], old[:, 1-axis])
+            residual = np.abs(overlapping[:, 1-axis]-predicted)
+            distance = float(np.median(residual))
+            if distance <= LANE_SIDE_MATCH_RATIO*width and np.percentile(residual, 80) <= 1.25*LANE_SIDE_MATCH_RATIO*width:
+                matches.append((distance, side))
+        matches.sort()
+        if not matches or (len(matches) > 1 and matches[1][0]-matches[0][0] < 8.0):
+            return None
+        return matches[0][1]
+
+    @staticmethod
+    def _curve_edge_confidence(edge, width):
+        span = float(np.linalg.norm(np.ptp(edge['measured'], axis=0)))
+        return float((0.45*min(1.0, span/(0.30*width))
+                      + 0.30*min(1.0, len(edge['measured'])/100.0)
+                      + 0.25*max(0.0, 1.0-edge['rms']/CURVE_MAX_FIT_RMS))
+                     * edge['logic_weight'])
+
+    def _curve_fit_candidate(self, points, horizontal, side, width, height, y0, image_height):
+        """桥前从近端沿连续边界拟合，截掉粘连远横边产生的持续突变。"""
+        far_points = None
+        if self.pre_bridge_guard and not horizontal and len(points) >= CURVE_MIN_POINTS:
+            xs = cv2.medianBlur(points[:, 0].astype(np.float32).reshape(1, -1), 5).reshape(-1)
+            dx, dy = np.diff(xs), np.diff(points[:, 1])
+            jumps = np.flatnonzero(np.abs(dx) > PRE_BRIDGE_MAX_ROW_SLOPE*np.maximum(1.0, dy))
+            # 短距离跳出又回到原线的是局部毛刺，交原有点级鲁棒拟合剔除，
+            # 不因一个小凸块截掉其上方整段真实边线。
+            paired = set()
+            for a, b in zip(jumps[:-1], jumps[1:]):
+                if (dx[a]*dx[b] < 0 and points[b+1, 1]-points[a, 1] <= CURVE_MAX_GAP_PIXELS
+                        and abs(dx[a]+dx[b]) <= max(8.0, .25*max(abs(dx[a]), abs(dx[b])))):
+                    paired.update((int(a), int(b)))
+            persistent = [int(i) for i in jumps if int(i) not in paired]
+            if persistent:
+                cuts = [0]+[i+1 for i in persistent]+[len(points)]
+                usable = [(start, end) for start, end in zip(cuts[:-1], cuts[1:])
+                          if self._curve_has_near_support(
+                              dict(horizontal=False, measured=points[start:end]), y0, image_height)]
+                if not usable:
+                    return None
+                # 最近端若只是几个异常点，采用其前方仍有近端实测支持的连续段。
+                # 不强行保留最底部碎片，也不让远处横边通过重新拟合混回来。
+                start, end = max(usable, key=lambda part: points[part[1]-1, 1])
+                far_points = np.vstack((points[:start], points[end:]))
+                points = points[start:end]
+        candidate = self._curve_fit_samples(points, horizontal, side, width, height)
+        if candidate is not None and far_points is not None:
+            candidate['rejected'] = np.vstack((candidate['rejected'], far_points))
+            candidate['rejected_points'] += len(far_points)
+        return candidate
+
+    @staticmethod
+    def _curve_has_near_support(candidate, y0: int, image_height: int) -> bool:
+        """桥前只认可逐行实测内沿；外推点、横向像素数不提供近端支持。"""
+        if candidate['horizontal']:
+            return False
+        # 非横向候选按 y 取点，每行至多一个点，拟合与片段合并均保持 y 升序。
+        rows = candidate['measured'][:, 1]
+        if len(rows) < max(CURVE_MIN_POINTS, int(round(PRE_BRIDGE_MIN_ROWS_RATIO*image_height))):
+            return False
+        if rows[-1]-rows[0] < PRE_BRIDGE_MIN_Y_SPAN_RATIO*image_height:
+            return False
+        near_row = PRE_BRIDGE_NEAR_ROW_RATIO*image_height-y0
+        return np.count_nonzero(rows >= near_row) >= max(
+            3, int(round(PRE_BRIDGE_MIN_NEAR_ROWS_RATIO*image_height)))
+
+    def _curve_boundaries(self, mask: np.ndarray, x0: int, full_width: int,
+                          y0: int, image_height: int):
+        """一个连通泡沫只是一条边，不再因穿过图像中心而拆成左右两条。"""
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+        height, width = mask.shape
+        candidates = []
+        order = np.argsort(stats[1:, cv2.CC_STAT_AREA])[::-1][:6] + 1
+        if self.pre_bridge_guard:
+            # 先以连通块高度排除远处薄横条，再把可能到达近端的候选排在前面。
+            # 在像素提取/拟合之前缩小候选集，避免大横条占满六个处理名额。
+            ids = np.flatnonzero(
+                (stats[1:, cv2.CC_STAT_AREA] >= 120)
+                & (stats[1:, cv2.CC_STAT_HEIGHT]-1 >= PRE_BRIDGE_MIN_Y_SPAN_RATIO*image_height)
+            )+1
+            reaches_near = (stats[ids, cv2.CC_STAT_TOP]+stats[ids, cv2.CC_STAT_HEIGHT]-1+y0
+                            >= PRE_BRIDGE_NEAR_ROW_RATIO*image_height)
+            order = ids[np.lexsort((stats[ids, cv2.CC_STAT_AREA], reaches_near))[::-1][:6]]
+        for label in order:
+            bx, by, bw, bh, area = stats[label]
+            if area < 120 or max(bw, bh) < CURVE_MIN_SPAN_RATIO*width:
+                continue
+            yy, xx = np.nonzero(labels[by:by+bh, bx:bx+bw] == label)
+            xx, yy = xx+bx, yy+by
+            near = xx[yy >= np.percentile(yy, 90)]
+            near_x = float(np.median(near)) + x0
+            side = 'left' if near_x < 0.5*full_width else 'right'
+            # 桥前恢复同一图像行的中点，必须按行取内沿；桥后急弯保留按列拟合。
+            horizontal = not self.pre_bridge_guard and bw > 1.8*bh
+            if horizontal:
+                edge = np.full(width, -1, dtype=int)
+                np.maximum.at(edge, xx, yy)
+                columns = np.flatnonzero((edge >= 0) & (edge < height-1))
+                points = np.column_stack((columns, edge[columns])).astype(float)
+            else:
+                edge = np.full(height, -1 if side == 'left' else width, dtype=int)
+                if side == 'left':
+                    np.maximum.at(edge, yy, xx)
+                else:
+                    np.minimum.at(edge, yy, xx)
+                rows = np.flatnonzero((edge > 0) & (edge < width-1))
+                points = np.column_stack((edge[rows], rows)).astype(float)
+            candidate = self._curve_fit_candidate(points, horizontal, side, width, height, y0, image_height)
+            if candidate is not None:
+                matched = self._curve_match_side(candidate['measured'], horizontal, full_width)
+                if matched is not None and matched != side:
+                    side = matched
+                    if not horizontal:
+                        edge = np.full(height, -1 if side == 'left' else width, dtype=int)
+                        if side == 'left':
+                            np.maximum.at(edge, yy, xx)
+                        else:
+                            np.minimum.at(edge, yy, xx)
+                        rows = np.flatnonzero((edge > 0) & (edge < width-1))
+                        points = np.column_stack((edge[rows], rows)).astype(float)
+                    candidate = self._curve_fit_candidate(points, horizontal, side, width, height, y0, image_height)
+                    if candidate is None:
+                        continue
+                candidate['area'] = int(area)
+                candidate['near_x'] = near_x
+                candidate['track_match'] = matched == side
+                candidates.append(candidate)
+        # 阴影/色差会把同一泡沫切成多个块。允许关联跨度有限、切线连续的观测，
+        # 但大于 24px 的中间缺口仍不填点；“关联同一边”不等于“整段已看见”。
+        changed = True
+        while changed:
+            changed = False
+            for i in range(len(candidates)):
+                for j in range(i+1, len(candidates)):
+                    a, b = candidates[i], candidates[j]
+                    if a['horizontal'] != b['horizontal']:
+                        continue
+                    if not a['horizontal'] and a['side'] != b['side']:
+                        continue
+                    axis = 0 if a['horizontal'] else 1
+                    pa, pb = a['measured'], b['measured']
+                    if pa[0, axis] > pb[0, axis]:
+                        pa, pb = pb, pa
+                    gap = pb[0, axis]-pa[-1, axis]
+                    if not 0 < gap <= CURVE_ASSOCIATION_GAP_RATIO*width:
+                        continue
+                    sa = np.polyfit(pa[-16:, axis], pa[-16:, 1-axis], 1)[0]
+                    sb = np.polyfit(pb[:16, axis], pb[:16, 1-axis], 1)[0]
+                    jump = pb[0, 1-axis]-pa[-1, 1-axis]
+                    if abs(sa-sb) > 0.75 or abs(jump-0.5*(sa+sb)*gap) > 8.0:
+                        continue
+                    points = np.vstack((pa, pb))
+                    near_x = float(np.median(points[points[:, 1] >= np.percentile(points[:, 1], 90), 0]))+x0
+                    matched = self._curve_match_side(points, a['horizontal'], full_width)
+                    side = (matched
+                            or (a['side'] if a['side'] == b['side'] else
+                                ('left' if near_x < 0.5*full_width else 'right')))
+                    joined = self._curve_fit_candidate(points, a['horizontal'], side, width, height, y0, image_height)
+                    if joined is None or joined['fit_fraction'] < 0.85:
+                        continue
+                    joined.update(area=a['area']+b['area'], near_x=near_x,
+                                  track_match=matched == side,
+                                  rejected=np.vstack((joined['rejected'], a['rejected'], b['rejected'])),
+                                  rejected_points=joined['rejected_points']+a['rejected_points']+b['rejected_points'])
+                    candidates[i] = joined
+                    candidates.pop(j)
+                    changed = True
+                    break
+                if changed:
+                    break
+        if self.pre_bridge_guard:
+            # 在片段关联后检查实测支持，允许真实近远片段关联，但不允许补点造证据。
+            candidates = [c for c in candidates
+                          if self._curve_has_near_support(c, y0, image_height)]
+        # 赛道先验只降低明显反向的整条候选可信度。位置误差的正负不在此筛选，
+        # 因此车身偏右时仍能向左纠偏；直线边沿也不会被当作反向急弯删除。
+        for c in candidates:
+            real_path = c['path'][c['support']]
+            direction = real_path[-1]-real_path[0]
+            angle = np.degrees(np.arctan2(abs(direction[0]), max(1.0, -direction[1])))
+            vote = np.sign(direction[0])*np.clip((angle-CURVE_HEADING_START_DEG)/
+                                               (CURVE_HEADING_FULL_DEG-CURVE_HEADING_START_DEG), 0, 1)
+            contrary = -self.expected_turn_direction*vote
+            c['logic_weight'] = float(1.0-0.75*np.clip((contrary-0.25)/0.5, 0, 1))
+            c['confidence'] = self._curve_edge_confidence(c, full_width)
+        # 每侧综合实测支持与方向一致性选择，防止色块/反向候选主导控制。
+        edges = {side: max((c for c in candidates if c['side'] == side),
+                           key=lambda c: (c['confidence'] >= .70, c['track_match'],
+                                          len(c['measured'])*c['logic_weight']), default=None)
+                 for side in ('left', 'right')}
+        self._curve_tracks = {}
+        for side, c in edges.items():
+            if c is not None and c['confidence'] >= .70:
+                points = c['measured']
+                near = points[points[:, 1] >= np.max(points[:, 1])-.10*np.ptp(points[:, 1]), 0]
+                self._curve_tracks[side] = dict(measured=points.copy(), horizontal=c['horizontal'],
+                                                near_x=float(np.median(near)))
+        return edges
+
+    def _curve_choose_single(self, edges):
+        """左线可靠就持续跟左；右线后备可以长期使用，左线重现后再确认身份。"""
+        available = [c for c in edges.values() if c is not None]
+        left, right = edges['left'], edges['right']
+        left_good = left is not None and left['confidence'] >= .70
+        right_good = right is not None and right['confidence'] >= .70
+        if self.prefer_left_line or self.force_left_line:
+            if left_good:
+                if self._curve_control_side == 'right' and right_good:
+                    self._curve_left_return_frames += 1
+                    edge = left if self._curve_left_return_frames >= LANE_LEFT_RETURN_FRAMES else right
+                else:
+                    edge = left
+            else:
+                self._curve_left_return_frames = 0
+                edge = right if right_good else max(available, key=lambda c: c['confidence'])
+        else:
+            current = edges.get(self._curve_control_side)
+            edge = current if current is not None and current['confidence'] >= .70 else max(available, key=lambda c: c['confidence'])
+        self._curve_control_side = edge['side']
+        if edge['side'] == 'left':
+            self._curve_left_return_frames = 0
+        return edge
+
+    def _curve_learn_width(self, edges, mask, y0, width, height):
+        """只用同帧双边实测学习 width(y)，补点和单边中点永不参与标定。"""
+        left, right = edges['left'], edges['right']
+        if (left is None or right is None or left['horizontal'] or right['horizontal']
+                or min(left['confidence'], right['confidence']) < .75):
+            return
+        lp, rp = left['measured'], right['measured']
+        rows, li, ri = np.intersect1d(lp[:, 1].astype(int), rp[:, 1].astype(int), return_indices=True)
+        widths = rp[ri, 0]-lp[li, 0]
+        centers = 0.5*(rp[ri, 0]+lp[li, 0])
+        keep = (widths >= .08*width) & (widths <= 1.05*width)
+        if np.count_nonzero(keep) < LANE_WIDTH_MIN_ROWS:
+            return
+        # 车道内部若仍有大面积黄色，通常是同一胶带或场外假配对。
+        prefix = np.cumsum(mask[rows] > 0, axis=1)
+        lx = np.rint(lp[li, 0]).astype(int)
+        rx = np.rint(rp[ri, 0]).astype(int)
+        corridor_yellow = (prefix[np.arange(len(rows)), rx]-prefix[np.arange(len(rows)), lx]) / np.maximum(1, widths)
+        keep &= corridor_yellow < .25
+        ys = (rows+y0)/height
+        tolerance = max(4.0, .015*width)
+        for _ in range(3):
+            if np.count_nonzero(keep) < LANE_WIDTH_MIN_ROWS or np.ptp(ys[keep]) < LANE_WIDTH_MIN_SPAN_RATIO:
+                return
+            fit = np.polyfit(ys[keep], widths[keep], 1)
+            center_fit = np.polyfit(ys[keep], centers[keep], 1)
+            new_keep = keep & (np.abs(widths-np.polyval(fit, ys)) <= tolerance)
+            new_keep &= np.abs(centers-np.polyval(center_fit, ys)) <= tolerance
+            if np.array_equal(new_keep, keep):
+                break
+            keep = new_keep
+        if np.count_nonzero(keep) < LANE_WIDTH_MIN_ROWS or np.ptp(ys[keep]) < LANE_WIDTH_MIN_SPAN_RATIO:
+            return
+        fit = np.polyfit(ys[keep], widths[keep], 1)
+        if not -.02*width <= fit[0] <= 4.0*width:
+            return
+        fit[0] = max(0.0, fit[0])
+        low, high = float(ys[keep].min()), float(ys[keep].max())
+        old = self._curve_width_model
+        if old is not None:
+            common_low, common_high = max(low, old['low']), min(high, old['high'])
+            if common_low <= common_high:
+                anchors = np.array([common_low, common_high])
+                if np.max(np.abs(np.polyval(fit, anchors)-np.polyval(old['fit'], anchors))) > .15*width:
+                    return
+                fit = (1-LANE_WIDTH_BLEND)*old['fit']+LANE_WIDTH_BLEND*fit
+        self._curve_width_model = dict(fit=fit, low=low, high=high)
+
+    def _curve_half_width(self, image_rows, width, height, side):
+        """透视先验 + 双边实测模型；坐标以整幅图像为准，与 ROI 裁剪无关。"""
+        rows = np.asarray(image_rows, dtype=float)/height
+        if self.pre_bridge_guard:
+            # 仅桥前采用红线标注的固定半宽；不把图像中轴当作赛道中线。
+            prior = 2*width*(PRE_BRIDGE_HALF_WIDTH_SLOPE*rows+PRE_BRIDGE_HALF_WIDTH_INTERCEPT)
+        else:
+            depth = np.maximum(0.0, (rows-LANE_WIDTH_HORIZON_RATIO)/
+                               (LANE_WIDTH_REFERENCE_ROW_RATIO-LANE_WIDTH_HORIZON_RATIO))
+            prior = 2*LANE_HALF_RATIO_REFERENCE*width*depth
+        prior = np.clip(prior, .08*width, 1.5*width)
+        lane_width = prior
+        model = self._curve_width_model
+        if model is not None:
+            distance = np.maximum(model['low']-rows, np.maximum(0.0, rows-model['high']))
+            blend = np.clip(1-distance/LANE_WIDTH_EXTRAPOLATION_RATIO, 0, 1)
+            learned = np.clip(np.polyval(model['fit'], rows), .08*width, 1.5*width)
+            lane_width = blend*learned+(1-blend)*prior
+        ratio = self.single_left_half_ratio if side == 'left' else self.single_right_half_ratio
+        return .5*lane_width*ratio/LANE_HALF_RATIO_REFERENCE
+
+    @staticmethod
+    def _curve_weights(path: np.ndarray, quality: np.ndarray, turn_strength: float):
+        """三段各自归一化，补线总权重最多为实测的 1/4。"""
+        distance = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))]
+        t = distance / max(1.0, distance[-1])
+        bands = np.minimum((3*t).astype(int), 2)
+        blend = float(np.clip(turn_strength, 0, 1))
+        shares = ((1-blend)*np.array(CURVE_STRAIGHT_WEIGHTS)
+                  + blend*np.array(CURVE_SHARP_WEIGHTS))
+        weights = np.zeros(len(path), dtype=float)
+        for band in range(3):
+            selected = bands == band
+            total = float(np.sum(quality[selected]))
+            if total > 0:
+                weights[selected] = shares[band]*quality[selected]/total
+        measured = quality >= 0.999
+        total_real, total_fill = weights[measured].sum(), weights[~measured].sum()
+        if total_fill > CURVE_FILL_TOTAL_RATIO*total_real:
+            weights[~measured] *= CURVE_FILL_TOTAL_RATIO*total_real/total_fill
+        weights /= max(1e-9, float(weights.sum()))
+        effective = tuple(float(weights[bands == band].sum()) for band in range(3))
+        return weights, effective
+
+    def _curve_turn_entry(self, selected, x0, y0, width, height, strength):
+        """只控制入弯时机；入弯后保持急弯能力，不随画面旋转来回撤销。"""
+        if not self.expected_turn_direction:
+            self._curve_turn_entry_ready = False
+            self._curve_turn_entry_count = 0
+            self._curve_exit_armed = False
+            self._curve_exit_ready = False
+            self._curve_exit_count = 0
+            return False, 0.0
+        if self._curve_turn_entry_ready:
+            return True, 0.0
+        measured = np.concatenate([c['measured'] for c in selected]) + [x0, y0]
+        central = measured[np.abs(measured[:, 0] - 0.5*width)
+                           <= TURN_ENTRY_CENTER_HALF_RATIO*width]
+        supported = (len(central) >= CURVE_MIN_POINTS
+                     and np.ptp(central[:, 0]) >= TURN_ENTRY_MIN_X_SPAN_RATIO*width
+                     and len(np.unique(central[:, 0])) >= CURVE_MIN_POINTS)
+        row = float(np.median(central[:, 1])) if supported else 0.0
+        close = supported and row >= TURN_ENTRY_NEAR_ROW_RATIO*height and strength > 0.0
+        self._curve_turn_entry_count = self._curve_turn_entry_count + 1 if close else 0
+        self._curve_turn_entry_ready = self._curve_turn_entry_count >= TURN_ENTRY_CONFIRM_FRAMES
+        return self._curve_turn_entry_ready, row
+
+    def _detect_columns(self, frame: np.ndarray) -> DetectionResult:
+        """连续内沿 + 有限曲线补线。桥上 column_scan=False 时仍走原检测。"""
+        height, width = frame.shape[:2]
+        debug = np.zeros_like(frame)
+        x0, x1 = int(width*self.search_left_ratio), int(width*self.search_right_ratio)
+        y0 = int(height*self.search_top_ratio)
+        # 急弯内沿常在原 .86 ROI 以下，必须实际看见它，不能靠直线猜测。
+        y1 = min(height, int(height*max(self.search_bottom_ratio, CURVE_BOTTOM_RATIO)))
+        width_key = (width, height, self.width_profile)
+        if width_key != self._curve_width_key:
+            self._curve_width_model = None
+            self._curve_width_key = width_key
+        track_key = (width_key, x0, x1, y0, y1, self.expected_turn_direction,
+                     self.prefer_left_line, self.pre_bridge_guard)
+        if track_key != self._curve_track_key:
+            self._curve_tracks = {}
+            self._curve_control_side = None
+            self._curve_left_return_frames = 0
+            self._curve_turn_entry_ready = False
+            self._curve_turn_entry_count = 0
+            self._curve_exit_armed = False
+            self._curve_exit_ready = False
+            self._curve_exit_count = 0
+            self._curve_track_key = track_key
+        self._curve_debug = dict(boundaries=[], center_path=np.empty((0, 2)),
+                                 x0=x0, x1=x1, y0=y0, y1=y1)
+        if x1 <= x0 or y1 <= y0:
+            return DetectionResult(False, 0.0, 0.0, 'empty_roi', debug, curve_mode=True)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = self._yellow_mask(hsv, local_only=True)[y0:y1, x0:x1].copy()
         if self.morphology_kernel > 1:
-            kernel = np.ones(
-                (self.morphology_kernel, self.morphology_kernel), dtype=np.uint8
-            )
+            kernel = np.ones((self.morphology_kernel, self.morphology_kernel), np.uint8)
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        roi_height, roi_width = mask.shape
-        target_x = 0.5 * width + self.target_offset_pixels
-
-        (left_inner, right_inner, left_col, right_col, stop_rows) = (
-            self._column_scan_edges(mask, target_x)
-        )
-        (centers, left_fill, right_fill, left_ext, right_ext) = (
-            self._centers_from_edges(left_inner, right_inner, roi_width, target_x)
-        )
-
-        measured_left = int(np.count_nonzero(np.isfinite(left_inner)))
-        measured_right = int(np.count_nonzero(np.isfinite(right_inner)))
-        both_rows = int(
-            np.count_nonzero(np.isfinite(left_inner) & np.isfinite(right_inner))
-        )
-        left_edge_x = (
-            float(np.mean(left_inner[np.isfinite(left_inner)]))
-            if measured_left
-            else 0.0
-        )
-        # 拟合延伸出来的行也算「这条边界可用」：大弯段常常只有十几行能真正
-        # 看见泡沫，但延伸出来的是整条边界模型，靠它才能算出稳定的 err。
-        line_rows_left = int(np.count_nonzero(np.isfinite(left_fill)))
-        line_rows_right = int(np.count_nonzero(np.isfinite(right_fill)))
-
-        # 调试层：掩膜 + 边界点（绿=实测，橙=拟合延伸）+ 中心
         debug[y0:y1, x0:x1] = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        cv2.rectangle(debug, (x0, y0), (x1, y1), (80, 80, 80), 1)
-        cv2.line(
-            debug, (int(target_x), y0), (int(target_x), y1),
-            (160, 160, 160), 1, cv2.LINE_AA,
-        )
-        for row_y in range(roi_height):
-            row_px = y0 + row_y
-            for edge, fill in (
-                (left_inner[row_y], left_fill[row_y]),
-                (right_inner[row_y], right_fill[row_y]),
-            ):
-                if np.isfinite(edge):
-                    debug[row_px, x0 + int(edge)] = (0, 220, 0)
-                elif np.isfinite(fill):
-                    debug[row_px, x0 + int(fill)] = (0, 140, 255)
-            if np.isfinite(centers[row_y]):
-                debug[row_px, x0 + int(centers[row_y])] = (255, 255, 255)
-        valid_rows = np.flatnonzero(np.isfinite(centers))
-        stats = (
-            f"COL L{measured_left} R{measured_right} lx={left_edge_x:.0f} "
-            f"both={both_rows} stop={stop_rows} "
-            f"ext={int(np.count_nonzero(left_ext | right_ext))} "
-            f"eff={line_rows_left},{line_rows_right} "
-            f"seg={x0 + left_col},{x0 + right_col}"
-            if left_col >= 0
-            else "COL no white column"
-        )
-        cv2.putText(
-            debug, stats,
-            (max(8, x0 + 6), min(debug.shape[0] - 10, y1 + 18)),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.40, (180, 180, 180), 1, cv2.LINE_AA,
-        )
+        edges = self._curve_boundaries(mask, x0, width, y0, height)
+        selected = [c for c in edges.values() if c is not None]
+        if not selected:
+            self._curve_control_side = None
+            self._curve_left_return_frames = 0
+            self._curve_turn_entry_count = 0
+            reason = 'no_near_boundary' if self.pre_bridge_guard else 'no_yellow_lines'
+            return DetectionResult(False, 0.0, 0.0, reason, debug, curve_mode=True)
+        self._curve_learn_width(edges, mask, y0, width, height)
+        left, right = edges['left'], edges['right']
+        path = quality = None
+        lane_width = 0.0
+        # 只有两条不同的实测边沿，才允许双边配对；优先左线阶段保持该约束。
+        if left is not None and right is not None and not (self.force_left_line or self.prefer_left_line):
+            if not left['horizontal'] and not right['horizontal']:
+                lp, rp = left['path'][::-1], right['path'][::-1]
+                common, li, ri = np.intersect1d(lp[:, 1], rp[:, 1], return_indices=True)
+                widths = rp[ri, 0]-lp[li, 0]
+                usable = ((widths >= self.min_lane_width_ratio*width)
+                          & (widths <= self.max_lane_width_ratio*width))
+                paired_quality = np.minimum(left['quality'][::-1][li], right['quality'][::-1][ri])
+                if np.count_nonzero(usable & (paired_quality >= .999)) >= CURVE_MIN_POINTS:
+                    path = np.column_stack(((lp[li[usable], 0]+rp[ri[usable], 0])*0.5, common[usable]))[::-1]
+                    quality = np.minimum(left['quality'][::-1][li[usable]], right['quality'][::-1][ri[usable]])[::-1]
+                    lane_width = float(np.median(widths[usable]))
+        if path is None:
+            edge = self._curve_choose_single(edges)
+            selected = [edge]
+            boundary = edge['path']
+            tangent = np.gradient(boundary, axis=0)
+            length = np.maximum(1e-6, np.linalg.norm(tangent, axis=1))
+            # 法向偏移：竖直边界向车道内侧平移，近水平弯道向画面下方偏移。
+            normal = np.column_stack((-tangent[:, 1], tangent[:, 0]))/length[:, None]
+            if edge['side'] == 'right':
+                normal *= -1
+            half = self._curve_half_width(boundary[:, 1]+y0, width, height, edge['side'])
+            if self.expected_turn_direction:
+                path = boundary + half[:, None]*normal
+            else:
+                # 平缓路段用同一图像行的宽度恢复中点，避免斜线法向挪动 y 后再错配深度。
+                path = boundary.copy()
+                path[:, 0] += half if edge['side'] == 'left' else -half
+            quality = edge['quality'].copy()
+            reason = 'left_line' if edge['side'] == 'left' else 'single_line'
+            heading_path = boundary[edge['support']]
+        else:
+            reason = 'tracking'
+            heading_path = path[quality >= 0.999]
+        # 图像方向指标，不是米制道路曲率。仅实测支持参与，补线不能制造急弯。
+        direction = heading_path[-1]-heading_path[0]
+        angle = float(np.degrees(np.arctan2(abs(direction[0]), max(1.0, -direction[1]))))
+        turn_strength = float(np.clip((angle-CURVE_HEADING_START_DEG)/
+                                      (CURVE_HEADING_FULL_DEG-CURVE_HEADING_START_DEG), 0, 1))
+        real_points = sum(len(c['measured']) for c in selected)
+        span = max(float(np.linalg.norm(np.ptp(c['measured'], axis=0))) for c in selected)
+        rms = max(c['rms'] for c in selected)
+        confidence = float(np.clip(0.45*min(1.0, span/(0.30*width))
+                                   + 0.30*min(1.0, real_points/100.0)
+                                   + 0.25*max(0.0, 1.0-rms/CURVE_MAX_FIT_RMS), 0, 1))
+        confidence *= min(c['logic_weight'] for c in selected)
+        # 保留弯道中线估计和减速判断；方向增强要等实测弯口到近处。
+        stage_strength = turn_strength if self.expected_turn_direction else 0.0
+        if confidence >= self.min_confidence:
+            turn_ready, turn_row = self._curve_turn_entry(selected, x0, y0, width, height, stage_strength)
+        else:
+            self._curve_turn_entry_count = 0
+            turn_ready, turn_row = self._curve_turn_entry_ready, 0.0
+        applied_strength = stage_strength if turn_ready else 0.0
+        heading_error = float(np.sign(direction[0])*applied_strength)
+        # 不把横向弯沿突然改成直线权重，否则位置项会无故向左跳。
+        # 入弯前的早转由方向项门控和控制限幅抑制，不篡改当前几何误差。
+        weights, effective_weights = self._curve_weights(path, quality, stage_strength)
+        target_x = 0.5*width + self.target_offset_pixels
+        lane_center = float(np.sum(weights*(path[:, 0]+x0)))
+        lateral_error = float((lane_center-target_x)/(0.5*width))
+        # ---- 出弯判定：泡沫在斑马线框内先伸到右侧、再退回画面中线左侧 ----
+        # 除框内位置外，还要求方向项已衰减、车身已回到中线附近（见 TURN_EXIT_MAX_*）。
+        box_measured = np.concatenate([c['measured'] for c in selected])
+        box_rows = box_measured[(box_measured[:, 1] >= CROSSWALK_TOP_RATIO*height)
+                                & (box_measured[:, 1] <= CROSSWALK_BOTTOM_RATIO*height)]
+        box_x_max = float(box_rows[:, 0].max()) if len(box_rows) else 0.0
+        if self.expected_turn_direction and len(box_rows) >= CURVE_MIN_POINTS:
+            if box_x_max >= TURN_EXIT_ARM_X_RATIO*width:
+                self._curve_exit_armed = True
+                self._curve_exit_count = 0
+            elif (self._curve_exit_armed
+                  and box_x_max < TURN_EXIT_BOX_X_RATIO*width
+                  and stage_strength <= TURN_EXIT_MAX_TURN_STRENGTH
+                  and abs(lateral_error) <= TURN_EXIT_MAX_LATERAL):
+                self._curve_exit_count += 1
+                if self._curve_exit_count >= TURN_EXIT_CONFIRM_FRAMES:
+                    self._curve_exit_ready = True
+            else:
+                self._curve_exit_count = 0
+        # 出弯后近端中心线斜率当航向误差：车摆正时斜率≈0，不会像方向项那样变成常值偏置。
+        slope_error = 0.0
+        if self._curve_exit_ready and len(path) >= 12:
+            near_path = path[path[:, 1] >= np.percentile(path[:, 1], 55)]
+            if len(near_path) >= 8 and float(np.ptp(near_path[:, 1])) >= 8.0:
+                slope = float(np.polyfit(near_path[:, 1], near_path[:, 0], 1)[0])
+                slope_error = float(np.sign(direction[0])
+                                    * np.clip(abs(slope)/TURN_EXIT_SLOPE_REF, 0.0, 1.0))
+        error = float(np.clip(lateral_error + CURVE_HEADING_GAIN*heading_error
+                              + TURN_EXIT_SLOPE_GAIN*slope_error, -1.0, 1.0))
 
-        lane_width_pixels = 0.0
-        if both_rows:
-            widths = right_inner[np.isfinite(left_inner) & np.isfinite(right_inner)] - left_inner[
-                np.isfinite(left_inner) & np.isfinite(right_inner)
-            ]
-            lane_width_pixels = float(np.mean(widths))
+        rejected_points = sum(c['rejected_points'] for c in selected)
+        line_rows = {side: sum(len(np.unique(c['measured'][:, 1].astype(int)))
+                               for c in selected if c['side'] == side) for side in ('left', 'right')}
+        left_x = next((c['near_x'] for c in selected if c['side'] == 'left'), 0.0)
+        offset = np.array([x0, y0])
+        self._curve_debug.update(boundaries=selected, center_path=path+offset,
+                                 point_weights=weights, effective_weights=effective_weights,
+                                 target_x=target_x, heading_angle_deg=angle,
+                                 raw_turn_strength=turn_strength,
+                                 turn_entry_ready=turn_ready, turn_entry_row=turn_row,
+                                 width_source=('paired' if self._curve_width_model is not None else
+                                               ('mark' if self.pre_bridge_guard else 'prior')),
+                                 fill_weight=float(weights[quality < .999].sum()))
+        for c in selected:
+            # 调试点批量落图，避免每个像素单独调用绘图函数。
+            for points, color in ((c['measured'], (0, 220, 0)), (c['rejected'], (0, 0, 255)),
+                                  (c['path'][~c['support'] & (np.arange(len(c['path'])) % 4 < 2)], (0, 170, 255))):
+                pixels = np.rint(points+offset).astype(int)
+                pixels = pixels[(pixels[:, 0] >= 0) & (pixels[:, 0] < width)
+                                & (pixels[:, 1] >= 0) & (pixels[:, 1] < height)]
+                debug[pixels[:, 1], pixels[:, 0]] = color
+        # 画面外的中线不钳制到边缘；只绘制可见点，误差仍用未截断的几何量。
+        pixels = np.rint(path[::3]+offset).astype(int)
+        pixels = pixels[(pixels[:, 0] >= 0) & (pixels[:, 0] < width)
+                        & (pixels[:, 1] >= 0) & (pixels[:, 1] < height)]
+        debug[pixels[:, 1], pixels[:, 0]] = (255, 200, 70)
+        cv2.line(debug, (int(target_x), y0), (int(target_x), y1-1), (150, 150, 150), 1)
+        width_source = ('paired' if self._curve_width_model is not None else
+                        ('mark' if self.pre_bridge_guard else 'prior'))
+        side_label = 'both' if len(selected) == 2 else selected[0]['side']
+        front = 'Y' if self.pre_bridge_guard else 'N'
+        cv2.putText(debug, f'pos={lateral_error:+.2f} dir={heading_error:+.2f} width={width_source} side={side_label} front={front}',
+                    (8, 110), cv2.FONT_HERSHEY_SIMPLEX, .42, (255, 255, 255), 1, cv2.LINE_AA)
+        if self.expected_turn_direction:
+            entry = 'TURN' if turn_ready else 'WAIT'
+            row_label = f'{turn_row:.0f}' if turn_row else '-'
+            cv2.putText(debug, f'entry={entry} row={row_label} need={TURN_ENTRY_NEAR_ROW_RATIO*height:.0f}'
+                               f' exit={"Y" if self._curve_exit_ready else "N"} slope={slope_error:+.2f} bx={box_x_max:.0f}',
+                        (8, 127), cv2.FONT_HERSHEY_SIMPLEX, .42, (0, 220, 255), 1, cv2.LINE_AA)
+        return DetectionResult(confidence >= self.min_confidence, error, confidence, reason, debug,
+                               lane_width, line_rows['left'], line_rows['right'], left_x,
+                               curve_mode=True, lateral_error=lateral_error, heading_error=heading_error,
+                               turn_strength=stage_strength, measured_points=real_points,
+                               boundary_span_pixels=span,
+                               boundary_side='both' if len(selected) == 2 else selected[0]['side'],
+                               band_weights=effective_weights,
+                               fill_weight_fraction=float(weights[quality < .999].sum()),
+                               logic_rejected_points=rejected_points,
+                               turn_prior_applied=bool(self.expected_turn_direction),
+                               width_source=width_source,
+                               turn_exit_ready=self._curve_exit_ready,
+                               heading_slope=slope_error,
+                               turn_entry_ready=turn_ready, turn_entry_row=turn_row)
 
-        if valid_rows.size == 0:
-            return DetectionResult(
-                False, 0.0, 0.0, "no_yellow_lines", debug,
-                0.0, measured_left, measured_right, left_edge_x,
-            )
-
-        row_weight = 1.0 + 1.4 * (valid_rows / max(1, roi_height - 1))
-        lane_center = float(
-            np.average(centers[valid_rows], weights=row_weight)
-        )
-        error = float(
-            np.clip((lane_center - target_x) / (0.5 * width), -1.0, 1.0)
-        )
-        coverage = valid_rows.size / max(1, roi_height)
-        # 单边线是合法模式（大弯段只看得见左侧外沿海绵），不能因为 both=0
-        # 就把置信度压到 0.55 以下——_usable_turn_line 的 0.70 门限会把它
-        # 全部判成丢线，结果就是车停在弯道里。
-        both_ratio = both_rows / max(1, max(measured_left, measured_right))
-        single_floor = 0.80 if (measured_left or measured_right) else 0.0
-        confidence = float(
-            np.clip(
-                0.55 * min(1.0, coverage / max(self.min_valid_row_fraction, 0.12))
-                + 0.45 * max(both_ratio, single_floor),
-                0.0,
-                1.0,
-            )
-        )
-        look_y = y0 + int(0.62 * roi_height)
-        cv2.circle(
-            debug,
-            (x0 + int(lane_center), look_y),
-            8, (255, 255, 255), 2, cv2.LINE_AA,
-        )
-        if coverage < self.min_valid_row_fraction:
-            return DetectionResult(
-                False, error, confidence, "insufficient_double_line", debug,
-                lane_width_pixels, line_rows_left, line_rows_right, left_edge_x,
-            )
-        if confidence < self.min_confidence:
-            return DetectionResult(
-                False, error, confidence, "low_confidence", debug,
-                lane_width_pixels, line_rows_left, line_rows_right, left_edge_x,
-            )
-        reason = "tracking" if both_rows > 0 else "single_line"
-        return DetectionResult(
-            True, error, confidence, reason, debug,
-            lane_width_pixels, line_rows_left, line_rows_right, left_edge_x,
-        )
 
     def detect(self, frame: np.ndarray) -> DetectionResult:
         if self.column_scan:
@@ -1861,6 +2457,7 @@ class ShiWaiFollower(Node):
         self._near_gone_at: Optional[float] = None
         self._cleared_bridge = False
         self._cleared_at: Optional[float] = None
+        self._turn_wait_heading: Optional[float] = None
         self._left_line_locked = False
         self._turn_lost_announced = False
         self._turn_search_timed_out = False
@@ -1949,7 +2546,7 @@ class ShiWaiFollower(Node):
         self._timer = self.create_timer(1.0 / self.control_rate, self._control_timer)
         mode = "运动已启用" if self.enable_motion else "只看画面不发车"
         self._announce(
-            f"shiwai_lin_line.py adaptive-speed + exit-recovery 版启动，{mode}。过桥状态：approach/crossing/exit_slow/exit_hold/done/fault"
+            f"shiwai_lin_line.py adaptive-speed + exit-recovery + bridge-single + pre-bridge-guard + width-mark-v2 + turn-entry-v1 + wait-heading-v2 版启动，{mode}。过桥状态：approach/crossing/exit_slow/exit_hold/done/fault"
         )
         self._announce(
             f"当前速度 {self.forward_speed:.2f} m/s，"
@@ -2149,6 +2746,17 @@ class ShiWaiFollower(Node):
         # 这一段不参与最长白列检测；进桥前和下桥后的大弯才用它。
         self.line_detector.column_scan = (
             COLUMN_SCAN_ENABLED and not self._bridge.crossing
+        )
+        self.line_detector.expected_turn_direction = (
+            1 if self._cleared_bridge and not self._passed_sidewalk else 0
+        )
+        self.line_detector.prefer_left_line = not self._passed_sidewalk
+        self.line_detector.pre_bridge_guard = (
+            not self._cleared_bridge and not self._passed_sidewalk
+            and not self._bridge.crossing
+        )
+        self.line_detector.width_profile = (
+            "crouched" if self._mode == self.MODE_CROUCH else "standing"
         )
         if self._mode == self.MODE_CROUCH:
             self.line_detector.single_left_half_ratio = TUNNEL_SINGLE_LEFT_HALF_RATIO
@@ -2621,13 +3229,46 @@ class ShiWaiFollower(Node):
         if b.state == "done" and not self._cleared_bridge:
             self._cleared_bridge = True
             self._cleared_at = now
+            # 记录完成离桥时的航向，不复用最初上桥航向，不逐帧重置。
+            self._turn_wait_heading = float(b.yaw)
             self._bridge_climb_ended = True
             self._left_line_locked = False
             self._have_error = False
             self._lost_since = None
 
+    def _bridge_steering(self, result: DetectionResult) -> Tuple[float, str]:
+        """复用当前检测：双边沿用原修正，可靠单边主导纠偏，其余保持航向。"""
+        b = self._bridge
+        yaw_error = math.radians(b.angle_delta(b.heading, b.yaw))
+        heading = BRIDGE_HEADING_KP * yaw_error
+        angular, guide = heading, "IMU"
+        if (result.valid and math.isfinite(result.error)
+                and math.isfinite(result.confidence)):
+            left, right = result.left_line_rows, result.right_line_rows
+            strong, other = max(left, right), min(left, right)
+            dual = (result.reason == "tracking" and result.confidence >= 0.85
+                    and other >= 40)
+            single = (
+                result.reason in ("left_line", "single_line", "tracking")
+                and result.confidence >= BRIDGE_SINGLE_MIN_CONFIDENCE
+                and strong >= BRIDGE_SINGLE_MIN_ROWS
+                and other <= BRIDGE_SINGLE_MAX_OTHER_RATIO * strong
+            )
+            if dual or single:
+                visual = self.steering_sign * self.steering_kp * result.error
+                visual = float(np.clip(visual, -BRIDGE_VISUAL_MAX_W, BRIDGE_VISUAL_MAX_W))
+                if dual:
+                    angular, guide = heading + visual, "LR"
+                else:
+                    # 单边纠偏不能被入桥时锁住的旧航向完全抵消或反转。
+                    # 误差归零时辅助项也归零；不把当前 yaw 写回桥状态机基准。
+                    assist_limit = BRIDGE_SINGLE_IMU_RATIO * abs(visual)
+                    assist = max(-assist_limit, min(heading, assist_limit))
+                    angular, guide = visual + assist, "L" if left > right else "R"
+        return float(np.clip(angular, -BRIDGE_MAX_W, BRIDGE_MAX_W)), guide
+
     def _bridge_command(self, result: DetectionResult, now: float) -> None:
-        """桥上保持航向；只让可靠双边线提供小幅视觉修正。"""
+        """桥上允许可靠单边持续纠偏，保持原速度、限幅与停车逻辑。"""
         b = self._bridge
         if b.state == "exit_hold":
             # 停车期间仍由 _sync_bridge 检查新 IMU；不是永久 fault。
@@ -2652,13 +3293,7 @@ class ShiWaiFollower(Node):
             linear = min(linear, BRIDGE_EXIT_SPEED)
         if lost_for > BRIDGE_LOST_LINE_HOLD:
             linear = min(linear, BRIDGE_LOST_LINE_SPEED)
-        yaw_error = math.radians(b.angle_delta(b.heading, b.yaw))
-        angular = BRIDGE_HEADING_KP * yaw_error
-        if (result.valid and result.reason == "tracking" and result.confidence >= 0.85
-                and min(result.left_line_rows, result.right_line_rows) >= 40):
-            visual = self.steering_sign * self.steering_kp * result.error
-            angular += float(np.clip(visual, -BRIDGE_VISUAL_MAX_W, BRIDGE_VISUAL_MAX_W))
-        angular = float(np.clip(angular, -BRIDGE_MAX_W, BRIDGE_MAX_W))
+        angular, guide = self._bridge_steering(result)
         if self.enable_motion:
             command = self._rate_limit(linear, angular, now)
             self._publish(*command)
@@ -2667,7 +3302,7 @@ class ShiWaiFollower(Node):
             command = (linear, angular)
             self._publish_zero("motion_disabled")
         self._update_height(now)
-        self._show(result, *command, self.enable_motion)
+        self._show(result, *command, self.enable_motion, extra=f"guide={guide}")
 
     def _speed_scale(self, now: float) -> float:
         if self._mode == self.MODE_CROUCH:
@@ -2783,11 +3418,14 @@ class ShiWaiFollower(Node):
         quality = (
             result.valid and result.reason == "left_line" and self._left_line_locked
             and result.confidence >= POST_BRIDGE_MIN_CONFIDENCE
-            and result.left_line_rows >= POST_BRIDGE_MIN_LEFT_ROWS
+            and (result.left_line_rows >= POST_BRIDGE_MIN_LEFT_ROWS
+                 or (result.curve_mode and result.boundary_side in ("left", "both")
+                     and result.measured_points >= POST_BRIDGE_MIN_LEFT_ROWS))
             and math.isfinite(result.error) and math.isfinite(angular)
         )
         straight = (
-            quality and abs(result.error) <= POST_BRIDGE_SMALL_ERROR
+            quality and result.turn_strength < 0.20
+            and abs(result.error) <= POST_BRIDGE_SMALL_ERROR
             and abs(angular) <= POST_BRIDGE_SMALL_ANGULAR
         )
         if straight:
@@ -2817,9 +3455,46 @@ class ShiWaiFollower(Node):
         self._post_bridge_speed_target = target
         return target
 
+    def _turn_wait_command(self, now: float) -> Tuple[float, float]:
+        """WAIT 不循线：保持离桥时航向，速度使用正常巡线值。"""
+        b = self._bridge
+        # 不能把 WAIT 画面里的黄线误差留到入弯后的 PID 里。
+        self._have_error = False
+        imu_at = b.imu_at
+        if (imu_at is None or not 0.0 <= now-imu_at <= BRIDGE_SENSOR_TIMEOUT
+                or not math.isfinite(b.yaw)):
+            self._publish_zero("turn_wait_imu_stale")
+            self._reset_post_bridge_speed("entry-imu-stop")
+            return 0.0, 0.0
+        heading = self._turn_wait_heading
+        if heading is None:
+            # 常规入口已由 _sync_bridge 在 done 转换时设置；仅补齐无参考的状态。
+            heading = self._turn_wait_heading = float(b.yaw)
+        if not math.isfinite(heading):
+            self._publish_zero("turn_wait_heading_invalid")
+            self._reset_post_bridge_speed("entry-imu-stop")
+            return 0.0, 0.0
+        error = math.radians(b.angle_delta(heading, b.yaw))
+        angular = float(np.clip(TURN_WAIT_HEADING_KP*error,
+                                -TURN_ENTRY_MAX_W, TURN_ENTRY_MAX_W))
+        linear = float(self.forward_speed)
+        self._reset_post_bridge_speed("entry-yaw")
+        self._post_bridge_speed_target = linear
+        if self.enable_motion:
+            command = self._rate_limit(linear, angular, now)
+            self._publish(*command)
+            self._last_command, self._last_command_valid = command, True
+        else:
+            self._publish_zero("motion_disabled")
+            command = linear, angular
+        return command
+
+
     def _follow_command(
         self, result: DetectionResult, now: float
     ) -> Tuple[float, float]:
+        if self._in_right_turn() and result.curve_mode and not result.turn_entry_ready:
+            return self._turn_wait_command(now)
         if self._have_error:
             filtered = self.error_filter_alpha * result.error + (
                 1.0 - self.error_filter_alpha
@@ -2936,6 +3611,10 @@ class ShiWaiFollower(Node):
 
     def _has_left_foam(self, result: DetectionResult) -> bool:
         """只有黄线在画面左半、行数够，才算真正的外侧左海绵。"""
+        if result.curve_mode:
+            return (result.valid and result.boundary_side in ("left", "both")
+                    and result.measured_points >= CURVE_MIN_POINTS
+                    and result.boundary_span_pixels >= CURVE_MIN_SPAN_RATIO*self.image_width)
         if not result.valid or result.left_line_rows < 18:
             return False
         max_x = TURN_LEFT_MAX_X_RATIO * float(self.image_width)
@@ -2947,14 +3626,15 @@ class ShiWaiFollower(Node):
             result.valid and math.isfinite(result.error)
             and math.isfinite(result.confidence)
             and result.confidence >= TURN_FALLBACK_MIN_CONFIDENCE
-            and max(result.left_line_rows, result.right_line_rows) >= TURN_FALLBACK_MIN_ROWS
-            and abs(result.error) < TURN_FALLBACK_MAX_ERROR
+            and ((result.curve_mode and result.measured_points >= CURVE_MIN_POINTS
+                  and result.boundary_span_pixels >= CURVE_MIN_SPAN_RATIO*self.image_width)
+                 or (not result.curve_mode and max(result.left_line_rows, result.right_line_rows) >= TURN_FALLBACK_MIN_ROWS))
+            and (abs(result.error) <= 1.0 if result.curve_mode else abs(result.error) < TURN_FALLBACK_MAX_ERROR)
             and result.reason in ("left_line", "tracking", "single_line")
         )
 
     def _detect_lane(self, frame: np.ndarray) -> DetectionResult:
-        # 最长白列模式下 force_left_line / 双线配对都不参与了，
-        # 再跑一次 detect_normal() 只会把 CPU 加倍、结果还一样。
+        # 连续内沿检测内部已处理左右线选择，不需要再扫描一次。
         if self.line_detector.column_scan:
             return self.line_detector.detect(frame)
         if not self._in_right_turn():
@@ -3020,6 +3700,13 @@ class ShiWaiFollower(Node):
             self._lost_since = now
         lost_for = now - self._lost_since
         extra = ""
+        if (turning and self.line_detector.column_scan
+                and not self.line_detector._curve_turn_entry_ready):
+            # 尚未到弯口时丢掉全部可靠边线，不允许旧扫线分支绕过入弯限转。
+            self._publish_zero("turn_entry_no_line")
+            self._update_height(now)
+            self._show(result, 0.0, 0.0, False, extra="ENTRY WAIT / NO RELIABLE LINE")
+            return
         # 隧道里白墙/反光经常丢黄线：一直慢速往前拱，不要停在洞口。
         if self._mode == self.MODE_CROUCH:
             tunnel_v = self.forward_speed * self.tunnel_speed_scale
