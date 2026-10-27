@@ -468,3 +468,7 @@ spole需要改，pos怪怪的
   → pos 被压到 -0.45
   → 行驶线整体横向偏移
   → 黄泡沫不再落在 CW 框里 ← /home/orangepi/wheel_robot/recordings/shiwai_20261025_190415.avi这个turn是不错的，需要改
+10.27下午：
+bx貌似公式写的有问题
+计算 bx 时，程序直接拿裁剪后的285行，与原图的346～451行范围比较
+改后box_measured = np.concatenate([c['measured'] for c in selected]) + [x0, y0]（加了x0，y0）
